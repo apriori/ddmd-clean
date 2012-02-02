@@ -1,0 +1,125 @@
+
+These are some things you might need to know:
+-----
+    Type "./build.sh" to build the crappy test. I use MacOSX, but there's
+    literally almost NO version code in this thing right now.
+    The current way of building uses only "rdmd --main -unittest dmd/Token".
+    Pretty basic, but hey, it builds. I'm really just testing
+    the lexer and parser, so find the unittests there.  Oh, and the unittest
+    outputs a trash file in the top directory which merely confirms that the
+    lexer works by outputting the result of reading 1000 tokens it's already
+    read.
+
+----- Remove "import dmd.TObject;" and "class XXXX [: TObject]" and "register();"
+    from all files in which I find them.
+    
+----- 
+    Replace import "dmd.TOK" with "dmd.Token".
+    All of dmd.TOK is now in dmd.Token
+    Repeat this pattern with all ENUMS, since they don't make sense otherwise
+
+----- 
+    Useless dmd tools:
+        dmd.File; // std.stdio
+        dmd.Array; // built into language
+        dmd.StringTable; // built-into language
+        dmd.OutBuffer; // std.array.appender
+        dmd.ObjModule; // backend stuff.. need?
+        dmd.String; // built-in
+        dmd.FileName; // std.file
+        dmd.StringValue; // built-in
+        dmd.String; // built-in
+        !!! dmd.Util  // actually useful for errors and warnings,
+        !!! // also finds inifile, but phobos would do it better than that
+    
+    dmd.OutBuffer has a phobos implementation which I found, called
+    std.array.appender. Change all OutBuffers to array.appender!string.
+    This will take some work. 
+		change "OutBuffer buf = new OutBuffer();"
+            "buf.writestring(pid.toChars());"
+				"buf.writeByte('.');"
+		      "buf.writeByte(0);"
+      to : "auto buf = appender!(char[])();"
+            "buf.put(pid.toChars());"
+				"buf.put('.');"
+				"buf.put('\0');"
+
+----- 
+    dmd.common seems stupid. Erase all traces.
+    Note: I'm trying to imagine ddmd as if it were programmed in
+    the *D* Programming Language. Therefore I'm rejecting ugly hacks.
+
+----- 
+    dmd.File is a crappy way to deal with files. Erase them. std.stdio and
+    std.file are superior. 
+
+----- 
+    dmd.Array, dmd.String are BUILT-IN, for pete's sake. Get rid of
+    them. Also built-in are StringTable, XXXTable, XXXArray. Convert
+    them.
+
+-----
+    Remove the tags off the enums. 
+    and strip ENUMNAME.ENUMNAMEenumval of its redundant header in
+    all files where it is encountered. e.g. TOK.TOKxxx,
+    Just use "alias int TOK" to solve the TOK myFunc(){} return type
+    problem.
+
+----- xxx
+
+----- 
+    Disable all code which I don't need. This includes semantic 
+    analysis. Therefore whenever I can't proceed, comment 
+    it out, but don't erase it because it might come in handy someday!
+    Well, whoops I erased it... too much headaches! Sorry guys!
+
+----- 
+    Repair damage done to already erased code in non-critical 
+    modules when I find it, possibly by copying from the ddmd 
+    backup and running the above edits on it. I kind of went 
+    maverick on this stuff at first. And I'm not even sure what
+    I cut from some of the files. I took out the back end on a 
+    lot of them entirely. Just because I'm not going to use the
+    backend doesn't mean I should have stripped it bare. I'll
+    probably have to pay the price for this by replacing all 
+    the functions eventually. They don't even have "assert(false)"
+    stubs anymore!
+
+-----
+    Rearrange all them damn files into a sane package, with folders
+    and subdirectories. Rename all the imports in the files to 
+    correspond with the new scheme.
+
+    Okay, the package scheme I ended up with is at least sane. The modules
+    violate the lower-case D convention. This could easily be changed, but
+    at least they're still what they were in ddmd. My basic formula
+    for the package scheme (all manually rearranged!) was, no module deeper
+    than two directories down. Very commonly used modules at top dmd
+    directory. Others placed appropriately according to the class heirarchy.
+
+----- 
+    Modules erased:
+    dmd.Utf
+    dmd.Dchar
+    etc. ( MANY! )
+
+-----
+    Enums I changed:
+    DYNCAST
+    TY ... now in dmd.Type
+    TOK in dmd.Token
+    BE
+    MOD 
+    STC : ulong
+    TRUST
+    PASS
+    ParseStatementFlags
+    etc. They're more or less where they were in the C++ dmd
+
+-----
+    I only support DMDV2. Axe DMDV1 and get rid of version(DMDV2)
+    Also, I don't support GCC code at all. Get rid of it for now.
+
+
+----- Well, this is as far as I've gotten.
+

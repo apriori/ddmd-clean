@@ -1,0 +1,82 @@
+module dmd.DocComment;
+// Nothin in here. Prolly a wasta time. 
+
+//import dmd.Section; // They're all in here now
+//import dmd.Macro;
+//import dmd.Escape;
+import dmd.Scope;
+import dmd.Dsymbol;
+
+import std.array;
+import dmd.DDMDExtensions;
+
+class Section 
+{
+    char[] name;
+
+    char[] body_;
+
+    int nooutput;
+
+    void write(DocComment dc, Scope sc, Dsymbol s, ref Appender!(char[]) buf)
+	{
+		assert(false);
+	}
+}
+
+struct Macro
+{
+}
+
+struct Escape
+{
+    char[] strings[256];
+
+    static char[] escapeChar(uint c)
+	{
+		assert(false);
+	}
+}
+
+class DocComment
+{
+	mixin insertMemberExtension!(typeof(this));
+
+    Section[] sections;		// Section*[]
+
+    Section summary;
+    Section copyright;
+    Section macros;
+    Macro** pmacrotable;
+    Escape** pescapetable;
+
+    this()
+	{
+		assert(false);
+	}
+
+    static DocComment parse(Scope sc, Dsymbol s, ubyte[] comment)
+	{
+		assert(false);
+	}
+	
+    static void parseMacros(Escape** pescapetable, Macro** pmacrotable, ubyte* m, uint mlen)
+	{
+		assert(false);
+	}
+	
+    static void parseEscapes(Escape** pescapetable, ubyte* textstart, uint textlen)
+	{
+		assert(false);
+	}
+
+    void parseSections(ubyte* comment)
+	{
+		assert(false);
+	}
+	
+    void writeSections(Scope sc, Dsymbol s, ref Appender!(char[]) buf)
+	{
+		assert(false);
+	}
+}

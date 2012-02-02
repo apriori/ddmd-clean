@@ -1,0 +1,22 @@
+module dmd.dsymbols.TypeInfoDeclarationsAll;
+
+public import dmd.dsymbols.typeInfoDeclarations.ClassInfoDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.ModuleInfoDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.ThisDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoArrayDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoAssociativeArrayDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoClassDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoConstDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoDelegateDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoEnumDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoFunctionDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoInterfaceDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoInvariantDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoPointerDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoSharedDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoStaticArrayDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoStructDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoTupleDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoTypedefDeclaration;
+public import dmd.dsymbols.typeInfoDeclarations.TypeInfoWildDeclaration;
