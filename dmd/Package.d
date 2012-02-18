@@ -7,13 +7,10 @@ import dmd.Scope;
 import dmd.Dsymbol;
 import dmd.Module;
 
-import dmd.DDMDExtensions;
 
 class Package : ScopeDsymbol
 {
    // zd note Package has no members of its own
-	mixin insertMemberExtension!(typeof(this));
-
     this(Identifier ident)
 	{
 		super(ident);

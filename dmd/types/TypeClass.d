@@ -4,7 +4,7 @@ import dmd.Global;
 import std.format;
 
 import dmd.Type;
-import dmd.scopeDsymbols.ClassDeclaration;
+import dmd.ScopeDsymbol;
 import dmd.types.TypeInstance;
 import dmd.Dsymbol;
 import dmd.Scope;
@@ -12,45 +12,18 @@ import dmd.HdrGenState;
 import std.array;
 import dmd.Expression;
 import dmd.Identifier;
-import dmd.varDeclarations.TypeInfoDeclaration;
+import dmd.TypeInfoDeclaration;
 import dmd.types.TypePointer;
 import dmd.Declaration;
 import dmd.VarDeclaration;
 import dmd.Token;
-import dmd.expressions.DotExp;
-import dmd.expressions.ScopeExp;
-import dmd.expressions.DotVarExp;
-import dmd.expressions.VarExp;
-import dmd.expressions.PtrExp;
-import dmd.expressions.AddExp;
-import dmd.expressions.IntegerExp;
-import dmd.expressions.DotIdExp;
-import dmd.dsymbols.EnumMember;
-import dmd.scopeDsymbols.TemplateMixin;
-import dmd.scopeDsymbols.TemplateDeclaration;
-import dmd.scopeDsymbols.TemplateInstance;
-import dmd.dsymbols.OverloadSet;
-import dmd.expressions.DotTypeExp;
-import dmd.expressions.TupleExp;
-import dmd.varDeclarations.ClassInfoDeclaration;
-import dmd.varDeclarations.TypeInfoInterfaceDeclaration;
-import dmd.varDeclarations.TypeInfoClassDeclaration;
-import dmd.expressions.NullExp;
-import dmd.expressions.TypeExp;
-import dmd.expressions.DotTemplateExp;
-import dmd.expressions.ErrorExp;
-import dmd.expressions.ThisExp;
-import dmd.expressions.CommaExp;
 
 
 import std.string : toStringz;
 
-import dmd.DDMDExtensions;
 
 class TypeClass : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
     ClassDeclaration sym;
 
     this(ClassDeclaration sym)

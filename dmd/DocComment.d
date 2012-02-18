@@ -1,14 +1,10 @@
 module dmd.DocComment;
 // Nothin in here. Prolly a wasta time. 
 
-//import dmd.Section; // They're all in here now
-//import dmd.Macro;
-//import dmd.Escape;
 import dmd.Scope;
 import dmd.Dsymbol;
 
 import std.array;
-import dmd.DDMDExtensions;
 
 class Section 
 {
@@ -40,8 +36,6 @@ struct Escape
 
 class DocComment
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Section[] sections;		// Section*[]
 
     Section summary;

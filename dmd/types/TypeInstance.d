@@ -2,13 +2,8 @@ module dmd.types.TypeInstance;
 
 import dmd.Global;
 import dmd.types.TypeQualified;
-import dmd.templateParameters.TemplateAliasParameter;
-import dmd.scopeDsymbols.TemplateDeclaration;
-import dmd.scopeDsymbols.TemplateInstance;
+import dmd.ScopeDsymbol;
 import dmd.TemplateParameter;
-import dmd.templateParameters.TemplateValueParameter;
-import dmd.templateParameters.TemplateTupleParameter;
-import dmd.expressions.VarExp;
 import dmd.Type;
 import dmd.HdrGenState;
 import std.array;
@@ -17,14 +12,11 @@ import dmd.Expression;
 import dmd.Scope;
 import dmd.Token;
 
-import dmd.DDMDExtensions;
 
 /* Similar to TypeIdentifier, but with a TemplateInstance as the root
  */
 class TypeInstance : TypeQualified
 {
-	mixin insertMemberExtension!(typeof(this));
-
 	TemplateInstance tempinst;
 
 	this(Loc loc, TemplateInstance tempinst)

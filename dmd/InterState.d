@@ -1,6 +1,6 @@
 module dmd.InterState;
 
-import dmd.declarations.FuncDeclaration;
+import dmd.FuncDeclaration;
 import dmd.Dsymbol;
 import dmd.Expression;
 import dmd.Statement;

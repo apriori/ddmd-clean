@@ -1,24 +1,19 @@
+Next commit: 2.16.2012  :: Getting the parser to run now
+    I restructured almost the whole thing. The compile times are WAY down!
 
-These are some things you might need to know:
------
-    Type "./build.sh" to build the crappy test. I use MacOSX, but there's
-    literally almost NO version code in this thing right now.
-    The current way of building uses only "rdmd --main -unittest dmd/Token".
-    Pretty basic, but hey, it builds. I'm really just testing
-    the lexer and parser, so find the unittests there.  Oh, and the unittest
-    outputs a trash file in the top directory which merely confirms that the
-    lexer works by outputting the result of reading 1000 tokens it's already
-    read.
+First upload: 2.2.2012
+These are the changes I've made so far. (2.2.2012)
 
------ Remove "import dmd.TObject;" and "class XXXX [: TObject]" and "register();"
+Step 1. Remove "import dmd.TObject;" and "class XXXX [: TObject]" and "register();"
     from all files in which I find them.
     
------ 
+Step 2. 
+    Search files for the pattern
+    "TOK\." and erase it in all instances because it's redundant.
     Replace import "dmd.TOK" with "dmd.Token".
     All of dmd.TOK is now in dmd.Token
-    Repeat this pattern with all ENUMS, since they don't make sense otherwise
 
------ 
+Step 3. 
     Useless dmd tools:
         dmd.File; // std.stdio
         dmd.Array; // built into language
@@ -44,36 +39,46 @@ These are some things you might need to know:
 				"buf.put('.');"
 				"buf.put('\0');"
 
------ 
+Step 4. 
     dmd.common seems stupid. Erase all traces.
     Note: I'm trying to imagine ddmd as if it were programmed in
     the *D* Programming Language. Therefore I'm rejecting ugly hacks.
+    Plus, I have a scheme for how ddmd can be developed organically.
 
------ 
-    dmd.File is a crappy way to deal with files. Erase them. std.stdio and
-    std.file are superior. 
+Step 5. 
+    dmd.File is a crappy way to deal with files. std.stdio and
+    std.file are superior. Erase all traces.
 
------ 
-    dmd.Array, dmd.String are BUILT-IN, for pete's sake. Get rid of
+Step 6. 
+    dmd.Array, dmd.String are BUILT-IN, for christ's sake. Exorcise
     them. Also built-in are StringTable, XXXTable, XXXArray. Convert
     them.
 
------
-    Remove the tags off the enums. 
+Step 7. 
+    Okay, the scheme for incremental development. Start with the lexer
+    and parser, which require access only to the constructors of all
+    those objects it creates. Therefore, apply changes 1 through 7
+    to these modules first. Let them be free, free at last of their
+    ties to the past.
+
+Step 8.
+    Figure out if the various enum lists can't go into one place.
+    Romave the tags off the enums. alias int ENUMNAME their definitions,
     and strip ENUMNAME.ENUMNAMEenumval of its redundant header in
-    all files where it is encountered. e.g. TOK.TOKxxx,
-    Just use "alias int TOK" to solve the TOK myFunc(){} return type
-    problem.
+    all files where it is encountered.
 
------ xxx
+Step 9.
+    Remove the ridiculous dmd.EnumUtils. It's just the wrong way to
+    port dmd to ddmd... well, once step 8 has been accomplished for
+    all enums... could take some time.
 
------ 
+
+Step 10. 
     Disable all code which I don't need. This includes semantic 
-    analysis. Therefore whenever I can't proceed, comment 
+    analysis, for now. Therefore whenever I can't proceed, comment 
     it out, but don't erase it because it might come in handy someday!
-    Well, whoops I erased it... too much headaches! Sorry guys!
 
------ 
+Step 11. 
     Repair damage done to already erased code in non-critical 
     modules when I find it, possibly by copying from the ddmd 
     backup and running the above edits on it. I kind of went 
@@ -82,44 +87,48 @@ These are some things you might need to know:
     lot of them entirely. Just because I'm not going to use the
     backend doesn't mean I should have stripped it bare. I'll
     probably have to pay the price for this by replacing all 
-    the functions eventually. They don't even have "assert(false)"
-    stubs anymore!
+    modules I didn't already edit severely with originals from
+    ddmd.
 
------
+Step 12. 
+    Educate yourself in how the build script works, and decide
+    what parts of it will come in handy for you. Pare it down to
+    what you really need, but keep the old code. Just use it as a
+    reference. Learn more about build scripts generally.
+
+Step 13.
     Rearrange all them damn files into a sane package, with folders
     and subdirectories. Rename all the imports in the files to 
     correspond with the new scheme.
+    This is a feature I'd like to make automatic in my own editor, 
+    and it's probably automatic in most IDEs, so it's not really
+    too big a deal.
 
-    Okay, the package scheme I ended up with is at least sane. The modules
-    violate the lower-case D convention. This could easily be changed, but
-    at least they're still what they were in ddmd. My basic formula
-    for the package scheme (all manually rearranged!) was, no module deeper
-    than two directories down. Very commonly used modules at top dmd
-    directory. Others placed appropriately according to the class heirarchy.
-
------ 
+Step 14. 
     Modules erased:
     dmd.Utf
     dmd.Dchar
-    etc. ( MANY! )
+    ...
 
------
+Step 15.
     Enums I changed:
     DYNCAST
-    TY ... now in dmd.Type
-    TOK in dmd.Token
+    TY
+    TOK
     BE
-    MOD 
+    MOD
     STC : ulong
     TRUST
     PASS
     ParseStatementFlags
-    etc. They're more or less where they were in the C++ dmd
 
------
+Step 16.
     I only support DMDV2. Axe DMDV1 and get rid of version(DMDV2)
-    Also, I don't support GCC code at all. Get rid of it for now.
+    Also, I don't support GCC code at all. Get rid of all of it.
 
+Step 17.
+    How does my stripped-down code connect with the nonstripped
+    modules I have to import for their constructors?
 
------ Well, this is as far as I've gotten.
+Step... Well, this is as far as I've gotten.
 

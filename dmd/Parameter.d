@@ -11,15 +11,12 @@ import dmd.types.TypeTuple;
 import dmd.Expression;
 import dmd.HdrGenState;
 import std.array;
-import dmd.attribDeclarations.StorageClassDeclaration;
+import dmd.AttribDeclaration;
 import dmd.Declaration;
 
-import dmd.DDMDExtensions;
 
 class Parameter 
 {
-	mixin insertMemberExtension!(typeof(this));
-
     //enum InOut inout;
     StorageClass storageClass;
     Type type;

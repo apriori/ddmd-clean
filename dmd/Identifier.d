@@ -1,32 +1,15 @@
 module dmd.Identifier;
-/++ Here we have initializers for: +/
-/+
-    static struct Id;
-+/
-//TODO get rid of generateId()
 
-import dmd.Global;
+import dmd.BasicUtils;
 import dmd.Token;
-import dmd.Lexer;
 
 import std.array;
 import std.conv;
 import std.format;
 
-static Identifier[string] stringtable; 
+Identifier[string] stringtable; 
 
-static this()
-{
-    dmd.Token.initTochars();
-    dmd.Token.initPrecedence();
-    initKeywords();
-    Id.initIdentifiers();
-}
-// Test one to make sure
-unittest { assert ( precedence[TOKge] == PREC_rel ); }
-unittest { assert ( Token.tochars[TOKge] == ">=" ); }
-
-private void initKeywords()
+void initKeywords()
 {
     foreach ( k; dmd.Token.keywords )
     {  
@@ -34,6 +17,8 @@ private void initKeywords()
     }
 }
 
+mixin( import("Id.txt"));
+/+
 /+++++++++++++++++ The main struct for Id.anything; ++++++++++++++++++++/
 struct Id
 {
@@ -56,7 +41,6 @@ struct Id
         mixin( generateNames() );
     }
 }
-
 /+ And the Identifier/name pairs: +/
 private enum string[2][] IDS = 
 [
@@ -355,6 +339,7 @@ private string generateNames()
     return res;
 }
 
++/
 
 class Identifier
 {
@@ -367,10 +352,18 @@ class Identifier
         this.value = value;
     }
     
+    static void initKeywords()
+    {
+       foreach ( k; dmd.Token.keywords )
+       {  
+          stringtable[k.name] = new Identifier( k.name, k.value );
+       }
+    }
+
     override bool opEquals(Object o)
-	{
-		if (this is o) {
-			return true;
+    {
+       if (this is o) {
+          return true;
 		}
 
 		if (auto i = cast(Identifier) o) {
@@ -455,3 +448,4 @@ class Identifier
     }
 
 }
+

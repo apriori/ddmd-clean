@@ -2,34 +2,23 @@ module dmd.types.TypeAArray;
 
 import dmd.Global;
 import dmd.types.TypeArray;
-import dmd.varDeclarations.TypeInfoDeclaration;
-import dmd.varDeclarations.TypeInfoAssociativeArrayDeclaration;
+import dmd.TypeInfoDeclaration;
 import dmd.Expression;
 import dmd.Scope;
-import dmd.scopeDsymbols.StructDeclaration;
-import dmd.expressions.DotTemplateInstanceExp;
-import dmd.expressions.IdentifierExp;
+import dmd.ScopeDsymbol;
 import dmd.Dsymbol;
 import dmd.Type;
 import dmd.types.TypeSArray;
 import dmd.HdrGenState;
 import std.array;
 import dmd.Identifier;
-import dmd.scopeDsymbols.TemplateInstance;
-import dmd.expressions.CallExp;
-import dmd.expressions.IntegerExp;
-import dmd.declarations.FuncDeclaration;
-import dmd.expressions.VarExp;
+import dmd.FuncDeclaration;
 import dmd.types.TypeFunction;
-import dmd.expressions.NullExp;
 
 
-import dmd.DDMDExtensions;
 
 class TypeAArray : TypeArray
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Type	index;		// key type
     Loc		loc;
     Scope	sc;

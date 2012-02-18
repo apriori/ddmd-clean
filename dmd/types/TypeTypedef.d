@@ -4,7 +4,6 @@ import dmd.Global;
 import std.format;
 
 import dmd.Type;
-import dmd.declarations.TypedefDeclaration;
 import dmd.Dsymbol;
 import dmd.Scope;
 import dmd.HdrGenState;
@@ -12,15 +11,12 @@ import std.array;
 import dmd.Expression;
 import dmd.Identifier;
 import dmd.types.TypeSArray;
-import dmd.varDeclarations.TypeInfoDeclaration;
-import dmd.varDeclarations.TypeInfoTypedefDeclaration;
+import dmd.TypeInfoDeclaration;
+import dmd.Declaration;
 
-import dmd.DDMDExtensions;
 
 class TypeTypedef : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
     TypedefDeclaration sym;
 
     this(TypedefDeclaration sym)

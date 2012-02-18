@@ -2,29 +2,19 @@ module dmd.types.TypeQualified;
 
 import dmd.Global;
 import dmd.Type;
-import dmd.dsymbols.Import;
-import dmd.expressions.DsymbolExp;
-import dmd.expressions.TypeExp;
-import dmd.expressions.DotIdExp;
 import dmd.VarDeclaration;
-import dmd.dsymbols.EnumMember;
-import dmd.declarations.TupleDeclaration;
-import dmd.expressions.VarExp;
-import dmd.scopeDsymbols.TemplateInstance;
+import dmd.ScopeDsymbol;
 import dmd.Identifier;
 import dmd.HdrGenState;
 import std.array;
 import dmd.Scope;
 import dmd.Dsymbol;
 import dmd.Expression;
-import dmd.declarations.FuncDeclaration;
+import dmd.FuncDeclaration;
 
-import dmd.DDMDExtensions;
 
 class TypeQualified : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Loc loc;
     Identifier[] idents;	// array of Identifier's representing ident.ident.ident etc.
 

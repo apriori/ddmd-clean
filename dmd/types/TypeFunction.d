@@ -4,32 +4,26 @@ import dmd.Global;
 import dmd.types.TypeNext;
 import dmd.types.TypeSArray;
 import dmd.types.TypeArray;
-import dmd.templateParameters.TemplateTupleParameter;
-import dmd.scopeDsymbols.StructDeclaration;
+import dmd.ScopeDsymbol;
 import dmd.types.TypeStruct;
 import dmd.types.TypeIdentifier;
 import dmd.TemplateParameter;
-import dmd.varDeclarations.TypeInfoFunctionDeclaration;
 import dmd.Type;
 import dmd.Scope;
 import dmd.Identifier;
 import dmd.HdrGenState;
 import std.array;
-import dmd.varDeclarations.TypeInfoDeclaration;
+import dmd.TypeInfoDeclaration;
 import dmd.Parameter;
 import dmd.Expression;
-import dmd.declarations.FuncDeclaration;
+import dmd.FuncDeclaration;
 import dmd.Dsymbol;
 import dmd.types.TypeTuple;
-import dmd.scopeDsymbols.TemplateInstance : isTuple;
 import std.stdio;
 
-import dmd.DDMDExtensions;
 
 class TypeFunction : TypeNext
 {
-	mixin insertMemberExtension!(typeof(this));
-
     // .next is the return type
 
     Parameter[] parameters;	// function parameters

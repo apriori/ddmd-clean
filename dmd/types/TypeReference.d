@@ -8,14 +8,10 @@ import dmd.Scope;
 import dmd.HdrGenState;
 import dmd.Expression;
 import dmd.Identifier;
-import dmd.expressions.NullExp;
 
-import dmd.DDMDExtensions;
 
 class TypeReference : TypeNext
 {
-	mixin insertMemberExtension!(typeof(this));
-
     this(Type t)
 	{
 		super( TY.init, null);

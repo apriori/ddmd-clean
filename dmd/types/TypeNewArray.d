@@ -5,14 +5,11 @@ import dmd.Type;
 import std.array;
 import dmd.types.TypeNext;
 
-import dmd.DDMDExtensions;
 
 /** T[new]
  */
 class TypeNewArray : TypeNext
 {
-	mixin insertMemberExtension!(typeof(this));
-
 	this(Type next)
 	{
 		super(Tnarray, next);

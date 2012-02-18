@@ -10,17 +10,11 @@ import dmd.HdrGenState;
 import std.array;
 import dmd.types.TypeTuple;
 import dmd.Parameter;
-import dmd.expressions.SliceExp;
-import dmd.declarations.TupleDeclaration;
 import dmd.ScopeDsymbol;
-import dmd.scopeDsymbols.ArrayScopeSymbol;
 
-import dmd.DDMDExtensions;
 
 class TypeSlice : TypeNext
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Expression lwr;
     Expression upr;
 

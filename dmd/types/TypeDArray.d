@@ -3,28 +3,20 @@ module dmd.types.TypeDArray;
 import dmd.Global;
 import dmd.types.TypeArray;
 import dmd.Token;
-import dmd.expressions.StringExp;
-import dmd.expressions.IntegerExp;
-import dmd.expressions.ArrayLengthExp;
 import dmd.Type;
 import dmd.Scope;
 import dmd.HdrGenState;
 import std.array;
 import dmd.Expression;
 import dmd.Identifier;
-import dmd.varDeclarations.TypeInfoDeclaration;
-import dmd.varDeclarations.TypeInfoArrayDeclaration;
-import dmd.expressions.NullExp;
+import dmd.TypeInfoDeclaration;
 import dmd.types.TypeStruct;
 import dmd.types.TypePointer;
 
-import dmd.DDMDExtensions;
 
 // Dynamic array, no dimension
 class TypeDArray : TypeArray
 {
-	mixin insertMemberExtension!(typeof(this));
-
     this(Type t)
 	{
 		super(Tarray, t);

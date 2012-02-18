@@ -4,8 +4,7 @@ import dmd.Global;
 import std.format;
 
 import dmd.Type;
-import dmd.varDeclarations.TypeInfoTupleDeclaration;
-import dmd.varDeclarations.TypeInfoDeclaration;
+import dmd.TypeInfoDeclaration;
 import dmd.Expression;
 import dmd.Identifier;
 import dmd.HdrGenState;
@@ -13,15 +12,9 @@ import std.array;
 import dmd.Scope;
 import dmd.Dsymbol;
 import dmd.Parameter;
-import dmd.expressions.ErrorExp;
-import dmd.expressions.IntegerExp;
-
-import dmd.DDMDExtensions;
 
 class TypeTuple : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
 	Parameter[] arguments;	// types making up the tuple
 
 	this(Parameter[] arguments)

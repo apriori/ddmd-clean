@@ -5,19 +5,14 @@ import dmd.Type;
 import dmd.Token;
 import dmd.Scope;
 import dmd.Expression;
-import dmd.expressions.IntegerExp;
 import dmd.Identifier;
 import dmd.HdrGenState;
 import std.array;
-import dmd.expressions.RealExp;
 
-import dmd.DDMDExtensions;
 
 class TypeBasic : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
-    string dstring;
+    string dstring_;
     uint flags;
 
     this(TY ty)
@@ -125,7 +120,7 @@ class TypeBasic : Type
 		default:
 		}
 
-		this.dstring = d;
+		this.dstring_ = d;
 		this.flags = flags;
 		merge();
 	}
@@ -231,7 +226,7 @@ version (POSIX) { ///TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLA
 			toCBuffer3(buf, hgs, mod);
 			return;
 		}
-		buf.put(dstring);
+		buf.put(dstring_);
 	}
 	
     override bool isintegral()

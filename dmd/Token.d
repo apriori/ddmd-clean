@@ -382,6 +382,18 @@ void initTochars()
         tochars[TOKon_scope_exit]	= "scope(exit)";
         tochars[TOKon_scope_success]	= "scope(success)";
         tochars[TOKon_scope_failure]	= "scope(failure)";
+        tochars[TOKlparen] = "(";
+        tochars[TOKrparen] = ")";
+        tochars[TOKlbracket] = "[";
+        tochars[TOKrbracket] = "]";
+        tochars[TOKlcurly] = "{";
+        tochars[TOKrcurly] = "}";
+        tochars[TOKcolon] = ":";
+        tochars[TOKsemicolon] = ";";
+        tochars[TOKdot] = ".";
+        tochars[TOKcomment] = "/+ comments not implemented yet! +/";
+        tochars[TOKcomma] = ",";
+        tochars[TOKassign] = "=";
     }
 }
 
@@ -554,8 +566,7 @@ struct Token
         long	int64value;
         ulong	uns64value;
 
-        version (IN_GCC) {} 
-        else { real float80value; }
+        real float80value;
 
         struct
         {
@@ -565,11 +576,6 @@ struct Token
         }
 
         Identifier ident;
-    }
-
-    version (IN_GCC) 
-    {
-        real float80value; // can't use this in a union!
     }
 
     bool isKeyword()
@@ -599,10 +605,33 @@ struct Token
                 s = (to!string( int32value ));
                 break;
 
-            case TOKuns32v:
             case TOKcharv:
+            {
+                switch (int32value)
+                {
+                    case '\'': s = "'\\''"; break;
+                    case '\\': s = "'\\\\'"; break;
+                    case '\0': s = "'\\0'"; break;
+                    case 7: s = "'\\a'"; break;
+                    case 8: s = "'\\b'"; break;
+                    case 9:	s = "'\\t'"; break;
+                    case 10: s = "'\\n'"; break;
+                    case 11:   s = "'\\v'"; break;
+                    case 12:	s = "'\\f'"; break;
+                    case 13:	s = "'\\r'"; break;
+                    default:
+                        s = "'" ~ cast(char)int32value ~ "'";
+                        break;    
+                }
+                break;
+            }
             case TOKwcharv:
+                s = "'" ~ cast(char)int32value ~ "'";
+                break;    
             case TOKdcharv:
+                s = "'" ~ cast(char)int32value ~ "'";
+                break;    
+            case TOKuns32v:
                 s = (to!string( uns32value ));
                 break;
 
@@ -650,7 +679,7 @@ struct Token
                 buf.reserve( ustring.length ); // close enough?
 
                 buf.put('"');
-                foreach( c; codePoints(cast(string)ustring) )
+                foreach( c; codePoints(ustring) )
                 //for (size_t i = 0; i < ustring.length; )
                 {	
                     switch (c)

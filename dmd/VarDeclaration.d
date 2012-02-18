@@ -2,42 +2,21 @@ module dmd.VarDeclaration;
 
 import dmd.Global;
 import dmd.Declaration;
-import dmd.expressions.SliceExp;
-import dmd.scopeDsymbols.ClassDeclaration;
-import dmd.expressions.DeleteExp;
-import dmd.expressions.SymOffExp;
-import dmd.expressions.DotIdExp;
-import dmd.expressions.PtrExp;
-import dmd.expressions.CallExp;
-import dmd.expressions.DotVarExp;
-import dmd.expressions.CommaExp;
-import dmd.expressions.CastExp;
-import dmd.scopeDsymbols.StructDeclaration;
-import dmd.attribDeclarations.StorageClassDeclaration;
-import dmd.expressions.DsymbolExp;
+import dmd.UnaExp;
+import dmd.BinExp;
+import dmd.ScopeDsymbol;
+import dmd.AttribDeclaration;
 import dmd.types.TypeSArray;
-import dmd.expressions.IntegerExp;
-import dmd.expressions.VarExp;
-import dmd.expressions.AssignExp;
 import dmd.types.TypeTypedef;
-import dmd.initializers.ArrayInitializer;
-import dmd.initializers.StructInitializer;
-import dmd.expressions.NewExp;
-import dmd.declarations.TupleDeclaration;
-import dmd.scopeDsymbols.AggregateDeclaration;
-import dmd.scopeDsymbols.InterfaceDeclaration;
-import dmd.scopeDsymbols.TemplateInstance;
 import dmd.Initializer;
 import dmd.types.TypeStruct;
 import dmd.types.TypeTuple;
 import dmd.Parameter;
-import dmd.initializers.ExpInitializer;
 import dmd.Dsymbol;
 import dmd.Expression;
 import dmd.Token;
-import dmd.expressions.TupleExp;
 import dmd.Module;
-import dmd.declarations.FuncDeclaration;
+import dmd.FuncDeclaration;
 import dmd.Type;
 import dmd.Scope;
 import dmd.Identifier;
@@ -48,12 +27,9 @@ import std.array;
 import std.stdio : writef;
 import std.string : toStringz;
 
-import dmd.DDMDExtensions;
 
 class VarDeclaration : Declaration
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Initializer init;
     uint offset;
     bool noauto;			// no auto semantics
@@ -238,3 +214,73 @@ version (_DH) {
     override VarDeclaration isVarDeclaration() { return this; }
 }
 
+class ClassInfoDeclaration : VarDeclaration
+{
+	ClassDeclaration cd;
+
+	this(ClassDeclaration cd)
+	{
+
+		super(Loc(0), global.classinfo.type, cd.ident, null);
+		
+		this.cd = cd;
+		storage_class = STCstatic | STCgshared;
+	}
+	
+	override Dsymbol syntaxCopy(Dsymbol)
+	{
+		 assert(false);		// should never be produced by syntax
+		 return null;
+	}
+	
+
+	override void emitComment(Scope sc)
+	{
+	}
+
+	//override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
+	
+}
+
+class ModuleInfoDeclaration : VarDeclaration
+{
+	Module mod;
+
+	this(Module mod)
+	{
+		super(Loc(0), global.moduleinfo.type, mod.ident, null);
+	}
+	
+	override Dsymbol syntaxCopy(Dsymbol)
+	{
+		assert(false);		  // should never be produced by syntax
+		return null;
+	}
+	
+
+	void emitComment(Scope *sc)
+	{
+	}
+
+	//override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
+
+	/+ Symbol? what "Symbol"?
+   +/
+}
+
+// For the "this" parameter to member functions
+class ThisDeclaration : VarDeclaration
+{
+    this(Loc loc, Type t)
+	{
+		super(loc, t, Id.This, null);
+		noauto = true;
+	}
+	
+    override Dsymbol syntaxCopy(Dsymbol)
+	{
+		assert(false);
+	}
+	
+    override ThisDeclaration isThisDeclaration() { return this; }
+}
