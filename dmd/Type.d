@@ -7,28 +7,19 @@ module dmd.Type;
 
 import dmd.Global;
 import dmd.Parameter;
-import dmd.types.TypeArray;
-import dmd.expressions.DotVarExp;
-import dmd.expressions.ErrorExp;
-import dmd.expressions.StringExp;
-import dmd.expressions.IntegerExp;
-import dmd.expressions.VarExp;
 import dmd.TemplateParameter;
-import dmd.varDeclarations.TypeInfoSharedDeclaration;
-import dmd.varDeclarations.TypeInfoConstDeclaration;
-import dmd.varDeclarations.TypeInfoInvariantDeclaration;
 import dmd.Module;
 import dmd.VarDeclaration;
 import dmd.Scope;
 import dmd.Identifier;
-import std.array;
 import dmd.HdrGenState;
 import dmd.Expression;
 import dmd.Dsymbol;
-import dmd.varDeclarations.TypeInfoDeclaration;
-import dmd.scopeDsymbols.ClassDeclaration;
+import dmd.TypeInfoDeclaration;
+import dmd.ScopeDsymbol;
 import dmd.types.TypeBasic;
-import dmd.Lexer;
+//import dmd.Lexer;
+import dmd.types.TypeArray;
 import dmd.types.TypeSArray;
 import dmd.types.TypeDArray;
 import dmd.types.TypeAArray;
@@ -46,14 +37,11 @@ import dmd.types.TypeTypedef;
 import dmd.types.TypeClass;
 import dmd.types.TypeTuple;
 import dmd.types.TypeSlice;
-import dmd.scopeDsymbols.TemplateDeclaration;
-import dmd.expressions.DotIdExp;
-import dmd.scopeDsymbols.AggregateDeclaration;
-import dmd.expressions.DotTemplateInstanceExp;
 import dmd.Token;
-import dmd.varDeclarations.TypeInfoWildDeclaration;
 
-import dmd.DDMDExtensions;
+import std.array;
+import std.stdio;
+import std.string;
 
 /+ REALSIZE = size a real consumes in memory
  + REALPAD = 'padding' added to the CPU real size to bring it up to REALSIZE
@@ -120,6 +108,33 @@ enum
 	MODimmutable = 4,	// type is immutable
 	MODwild	= 8,	// type is wild
 	MODmutable = 0x10,	// type is mutable (only used in wildcard matching)
+}
+
+/***************************
+ * Return !=0 if modfrom can be implicitly converted to modto
+ */
+int MODimplicitConv(MOD modfrom, MOD modto)
+{
+    if (modfrom == modto)
+	return 1;
+
+    //printf("MODimplicitConv(from = %x, to = %x)\n", modfrom, modto);
+	static uint X(MOD m, MOD n)
+	{
+		return (((m) << 4) | (n));
+	}
+    switch (X(modfrom, modto))
+    {
+	    case X(MODundefined, MODconst):
+	    case X(MODimmutable, MODconst):
+	    case X(MODwild,      MODconst):
+	    case X(MODimmutable, MODconst | MODshared):
+	    case X(MODshared,    MODconst | MODshared):
+	    case X(MODwild | MODshared,    MODconst | MODshared):
+	        return 1;
+	    default:
+	        return 0;
+    }
 }
 
 /*********************************
@@ -247,8 +262,10 @@ T cloneThis(T)(T arc)
     // I was so thrilled to fit it all into one line!
     return cast(T) ( ( cast(byte*) arc )[0..arc.classinfo.init.length].dup ).ptr;
     // It's possible that I need to create an instance or something idunno
+    // Also the whole thing might be obviated by .dup :)
 }
 
+// MARK : Need this here?
 Object objectSyntaxCopy(Object o)
 {
     if (!o)
@@ -267,12 +284,10 @@ Object objectSyntaxCopy(Object o)
 
 class Type
 {
-	mixin insertMemberExtension!(typeof(this));
-	
     TY ty;
     MOD mod;	// modifiers MODxxxx
 
-    // I'm gonna ignore name mangling for now, but I'lll nedd it later
+    // The mangled name of the type
     string deco;
 
     /* These are cached values that are lazily evaluated by constOf(), invariantOf(), etc.
@@ -301,6 +316,7 @@ class Type
     // unless I declare it in another module (dmd.Token)
     static ubyte[TMAX] mangleChar;
     static ubyte[TMAX] sizeTy;
+    static Type[string]type_stringtable;
 
     this(TY ty)
 	{
@@ -417,8 +433,8 @@ debug {
 			Tbool,
 			Tascii, Twchar, Tdchar
 		];
-
-		foreach (bt; basetab) {
+      
+      foreach (bt; basetab) {
 			Type t = new TypeBasic(bt);
 			t = t.merge();
 			basic[bt] = t;
@@ -456,16 +472,56 @@ debug {
 		return cast(uint)size(Loc(0));	///
 	}
 
-
-
 	/********************************
 	 * Name mangling.
 	 * Input:
 	 *	flag	0x100	do not do const/invariant
 	 */
-    void toDecoBuffer(ref Appender!(char[]) buf, int flag = 0) { assert(false,"zd cut"); }
+    void toDecoBuffer(ref Appender!(char[]) buf, int flag = 0)
+	{
+		if (flag != mod && flag != 0x100)
+		{
+			MODtoDecoBuffer(buf, mod);
+		}
+		buf.put(mangleChar[ty]);
+	}
 
-    Type merge() { assert(false,"zd cut"); }
+    Type merge()
+	{
+		Type t = this;
+		assert(t);
+
+		//printf("merge(%s)\n", toChars());
+		if (deco is null)
+		{
+			auto buf = appender!(char[])();
+
+			//if (next)
+				//next = next.merge();
+			toDecoBuffer(buf);
+			auto s = buf.data.idup;
+			Type sv = type_stringtable.get(s, null);
+			if (sv)
+			{
+				t = sv;
+            debug 
+            {
+               if (!t.deco)
+                  writef("t = %s\n", t.toChars());
+            }
+				assert(t.deco);
+				//printf("old value, deco = '%s' %p\n", t.deco, t.deco);
+			}
+			else
+			{
+            type_stringtable[s] = this;
+				deco = s;
+				//printf("new value, deco = '%s' %p\n", t.deco, t.deco);
+			}
+		}
+		return t;
+	}
+
 
 	/*************************************
 	 * This version does a merge even if the deco is already computed.
@@ -651,6 +707,7 @@ debug {
 			assert(ito.isImmutable());
 			return ito;
 		}
+
 		Type t = makeInvariant();
 		t = t.merge();
 		t.fixTo(this);
@@ -746,9 +803,44 @@ debug {
      *	shared wild  => wild
 	 */
 	Type unSharedOf()
-   {
-    assert (false);
-   }
+	{
+		//writef("Type::unSharedOf() %p, %s\n", this, toChars());
+		Type t = this;
+
+		if (isShared())
+		{
+			if (isConst())
+				t = cto;	// shared const => const
+	        else if (isWild())
+	            t = wto;	// shared wild => wild
+			else
+				t = sto;
+			assert(!t || !t.isShared());
+		}
+
+		if (!t)
+		{
+			t = cloneThis(this);
+			t.mod = mod & ~MODshared;
+			t.deco = null;
+			t.arrayof = null;
+			t.pto = null;
+			t.rto = null;
+			t.cto = null;
+			t.ito = null;
+			t.sto = null;
+			t.scto = null;
+	        t.wto = null;
+	        t.swto = null;
+			t.vtinfo = null;
+			t = t.merge();
+
+			t.fixTo(this);
+		}
+		assert(!t.isShared());
+		return t;
+	}
+
 
 
     /********************************
@@ -793,27 +885,335 @@ debug {
         return t;
     }
 
-	static uint X(MOD m, MOD n)
-	{
-		return (((m) << 4) | (n));
-	}
-
 	/**********************************
 	 * For our new type 'this', which is type-constructed from t,
 	 * fill in the cto, ito, sto, scto, wto shortcuts.
 	 */
     void fixTo(Type t)
-    {
-        assert (false);
-    }
+	{
+	   // A nice little one-letter nested function
+      static uint X(MOD m, MOD n) { return (((m) << 4) | (n)); }
 
-	/***************************
-	 * Look for bugs in constructing types.
-	 */
-    void check()
-    {
-        assert (false);
-    }
+		ito = t.ito;
+
+		assert(mod != t.mod);
+
+      switch (X(mod, t.mod))
+      {
+         case X(MODundefined, MODconst):
+            cto = t;
+            break;
+
+         case X(MODundefined, MODimmutable):
+            ito = t;
+            break;
+
+         case X(MODundefined, MODshared):
+            sto = t;
+            break;
+
+         case X(MODundefined, MODshared | MODconst):
+            scto = t;
+            break;
+
+         case X(MODundefined, MODwild):
+            wto = t;
+            break;
+
+         case X(MODundefined, MODshared | MODwild):
+            swto = t;
+            break;
+
+
+         case X(MODconst, MODundefined):
+            cto = null;
+            goto L2;
+
+         case X(MODconst, MODimmutable):
+            ito = t;
+            goto L2;
+
+         case X(MODconst, MODshared):
+            sto = t;
+            goto L2;
+
+         case X(MODconst, MODshared | MODconst):
+            scto = t;
+            goto L2;
+
+         case X(MODconst, MODwild):
+            wto = t;
+            goto L2;
+
+         case X(MODconst, MODshared | MODwild):
+            swto = t;
+L2:
+            t.cto = this;
+            break;
+
+
+         case X(MODimmutable, MODundefined):
+            ito = null;
+            goto L3;
+
+         case X(MODimmutable, MODconst):
+            cto = t;
+            goto L3;
+
+         case X(MODimmutable, MODshared):
+            sto = t;
+            goto L3;
+
+         case X(MODimmutable, MODshared | MODconst):
+            scto = t;
+            goto L3;
+
+         case X(MODimmutable, MODwild):
+            wto = t;
+            goto L3;
+
+         case X(MODimmutable, MODshared | MODwild):
+            swto = t;
+L3:
+            t.ito = this;
+            if (t.cto) t.cto.ito = this;
+            if (t.sto) t.sto.ito = this;
+            if (t.scto) t.scto.ito = this;
+            if (t.wto) t.wto.ito = this;
+            if (t.swto) t.swto.ito = this;
+            break;
+
+
+         case X(MODshared, MODundefined):
+            sto = null;
+            goto L4;
+
+         case X(MODshared, MODconst):
+            cto = t;
+            goto L4;
+
+         case X(MODshared, MODimmutable):
+            ito = t;
+            goto L4;
+
+         case X(MODshared, MODshared | MODconst):
+            scto = t;
+            goto L4;
+
+         case X(MODshared, MODwild):
+            wto = t;
+            goto L4;
+
+         case X(MODshared, MODshared | MODwild):
+            swto = t;
+L4:
+            t.sto = this;
+            break;
+
+
+         case X(MODshared | MODconst, MODundefined):
+            scto = null;
+            goto L5;
+
+         case X(MODshared | MODconst, MODconst):
+            cto = t;
+            goto L5;
+
+         case X(MODshared | MODconst, MODimmutable):
+            ito = t;
+            goto L5;
+
+         case X(MODshared | MODconst, MODwild):
+            wto = t;
+            goto L5;
+
+         case X(MODshared | MODconst, MODshared):
+            sto = t;
+            goto L5;
+
+         case X(MODshared | MODconst, MODshared | MODwild):
+            swto = t;
+L5:
+            t.scto = this;
+            break;
+
+         case X(MODwild, MODundefined):
+            wto = null;
+            goto L6;
+
+         case X(MODwild, MODconst):
+            cto = t;
+            goto L6;
+
+         case X(MODwild, MODimmutable):
+            ito = t;
+            goto L6;
+
+         case X(MODwild, MODshared):
+            sto = t;
+            goto L6;
+
+         case X(MODwild, MODshared | MODconst):
+            scto = t;
+            goto L6;
+
+         case X(MODwild, MODshared | MODwild):
+            swto = t;
+L6:
+            t.wto = this;
+            break;
+
+
+         case X(MODshared | MODwild, MODundefined):
+            swto = null;
+            goto L7;
+
+         case X(MODshared | MODwild, MODconst):
+            cto = t;
+            goto L7;
+
+         case X(MODshared | MODwild, MODimmutable):
+            ito = t;
+            goto L7;
+
+         case X(MODshared | MODwild, MODshared):
+            sto = t;
+            goto L7;
+
+         case X(MODshared | MODwild, MODshared | MODconst):
+            scto = t;
+            goto L7;
+
+         case X(MODshared | MODwild, MODwild):
+            wto = t;
+L7:
+            t.swto = this;
+            break;
+         default:
+            // QUALITY probably can just "break;" w/ no message
+            writeln("Type.fixTo() found a caseX it didn't match with... error?");
+            break;
+      }
+
+      check();
+      t.check();
+      //printf("fixTo: %s, %s\n", toChars(), t.toChars());
+   }
+
+   /***************************
+    * Look for bugs in constructing types.
+    */
+   void check()
+   {
+      switch (mod)
+      {
+         case MODundefined:
+            if (cto) assert(cto.mod == MODconst);
+            if (ito) assert(ito.mod == MODimmutable);
+            if (sto) assert(sto.mod == MODshared);
+            if (scto) assert(scto.mod == (MODshared | MODconst));
+            if (wto) assert(wto.mod == MODwild);
+            if (swto) assert(swto.mod == (MODshared | MODwild));
+            break;
+
+         case MODconst:
+            if (cto) assert(cto.mod == MODundefined);
+            if (ito) assert(ito.mod == MODimmutable);
+            if (sto) assert(sto.mod == MODshared);
+            if (scto) assert(scto.mod == (MODshared | MODconst));
+            if (wto) assert(wto.mod == MODwild);
+            if (swto) assert(swto.mod == (MODshared | MODwild));
+            break;
+
+         case MODimmutable:
+            if (cto) assert(cto.mod == MODconst);
+            if (ito) assert(ito.mod == MODundefined);
+            if (sto) assert(sto.mod == MODshared);
+            if (scto) assert(scto.mod == (MODshared | MODconst));
+            if (wto) assert(wto.mod == MODwild);
+            if (swto) assert(swto.mod == (MODshared | MODwild));
+            break;
+
+         case MODshared:
+            if (cto) assert(cto.mod == MODconst);
+            if (ito) assert(ito.mod == MODimmutable);
+            if (sto) assert(sto.mod == MODundefined);
+            if (scto) assert(scto.mod == (MODshared | MODconst));
+            if (wto) assert(wto.mod == MODwild);
+            if (swto) assert(swto.mod == (MODshared | MODwild));
+            break;
+
+         case MODshared | MODconst:
+            if (cto) assert(cto.mod == MODconst);
+            if (ito) assert(ito.mod == MODimmutable);
+            if (sto) assert(sto.mod == MODshared);
+            if (scto) assert(scto.mod == MODundefined);
+            if (wto) assert(wto.mod == MODwild);
+            if (swto) assert(swto.mod == (MODshared | MODwild));
+            break;
+
+         case MODwild:
+            if (cto) assert(cto.mod == MODconst);
+            if (ito) assert(ito.mod == MODimmutable);
+            if (sto) assert(sto.mod == MODshared);
+            if (scto) assert(scto.mod == (MODshared | MODconst));
+            if (wto) assert(wto.mod == MODundefined);
+            if (swto) assert(swto.mod == (MODshared | MODwild));
+            break;
+
+         case MODshared | MODwild:
+            if (cto) assert(cto.mod == MODconst);
+            if (ito) assert(ito.mod == MODimmutable);
+            if (sto) assert(sto.mod == MODshared);
+            if (scto) assert(scto.mod == (MODshared | MODconst));
+            if (wto) assert(wto.mod == MODwild);
+            if (swto) assert(swto.mod == MODundefined);
+            break;
+         default:
+            // QUALITY this message is proabbly totally unnecessary
+            import std.stdio;
+            writeln("Type.check found a case it couldn't match.");
+            break;
+      }
+
+      Type tn = nextOf();
+      if (tn && ty != Tfunction && ty != Tdelegate)
+      {
+         // Verify transitivity
+         switch (mod)
+         {
+            case MODundefined:
+               break;
+
+            case MODconst:
+               assert(tn.mod & MODimmutable || tn.mod & MODconst);
+               break;
+
+            case MODimmutable:
+               assert(tn.mod == MODimmutable);
+               break;
+
+            case MODshared:
+               assert(tn.mod & MODimmutable || tn.mod & MODshared);
+               break;
+
+            case MODshared | MODconst:
+               assert(tn.mod & MODimmutable || tn.mod & (MODshared | MODconst));
+               break;
+
+            case MODwild:
+               assert(tn.mod);
+               break;
+
+            case MODshared | MODwild:
+               assert(tn.mod == MODimmutable || tn.mod == (MODshared | MODconst) || tn.mod == (MODshared | MODwild));
+               break;
+            default:
+               break;
+         }
+         tn.check();
+		}
+	}
 
 	/************************************
 	 * Apply MODxxxx bits to existing type.
@@ -864,9 +1264,61 @@ debug {
 	 * a shared type => "shared const"
 	 */
     Type addMod(MOD mod)
-    {
-        assert (false);
-    }
+	{
+		Type t = this;
+
+		/* Add anything to immutable, and it remains immutable
+		 */
+        //printf("addMod(%x) %s\n", mod, toChars());
+		if (!t.isImmutable())
+		{
+			switch (mod)
+			{
+				case MODundefined:
+					break;
+
+				case MODconst:
+					if (isShared())
+						t = sharedConstOf();
+					else
+						t = constOf();
+					break;
+
+				case MODimmutable:
+					t = invariantOf();
+					break;
+
+				case MODshared:
+					if (isConst())
+						t = sharedConstOf();
+		            else if (isWild())
+		                t = sharedWildOf();
+					else
+						t = sharedOf();
+					break;
+
+				case MODshared | MODconst:
+					t = sharedConstOf();
+					break;
+
+	            case MODwild:
+		            if (isConst())
+                    {}
+		            else if (isShared())
+		                t = sharedWildOf();
+		            else
+		                t = wildOf();
+		            break;
+
+	            case MODshared | MODwild:
+		            t = sharedWildOf();
+		            break;
+               default:
+                  break;
+			}
+		}
+		return t;
+	}
 
     Type addStorageClass(StorageClass stc)
 	{
@@ -905,24 +1357,173 @@ debug {
 		assert(false);
 	}
 
-	final Type clone() { assert(false,"zd cut"); }
+	final Type clone() { return cloneThis(this); }
 
-    Type arrayOf() { assert(false,"zd cut"); }
+    Type arrayOf()
+	{
+		if (!arrayof)
+		{
+			Type t = new TypeDArray(this);
+			arrayof = t.merge();
+		}
+		return arrayof;
+	}
 
-    Type makeConst() { assert(false,"zd cut"); }
 
-    Type makeInvariant() { assert(false,"zd cut"); }
+    Type makeConst()
+	{
+		//printf("Type.makeConst() %p, %s\n", this, toChars());
+		if (cto)
+			return cto;
 
-    Type makeShared() { assert(false,"zd cut"); }
+		Type t = clone();
+		t.mod = MODconst;
 
-    Type makeSharedConst() { assert(false,"zd cut"); }
+		t.deco = null;
+		t.arrayof = null;
+		t.pto = null;
+		t.rto = null;
+		t.cto = null;
+		t.ito = null;
+		t.sto = null;
+		t.scto = null;
+        t.wto = null;
+        t.swto = null;
+		t.vtinfo = null;
 
-    Type makeWild() { assert(false,"zd cut"); }
+		//printf("-Type.makeConst() %p, %s\n", t, toChars());
+		return t;
+	}
 
-    Type makeSharedWild() { assert(false,"zd cut"); }
+    Type makeInvariant()
+	{
+		if (ito) {
+			return ito;
+		}
 
-    Type makeMutable() { assert(false,"zd cut"); }
+		Type t = clone();
+		t.mod = MODimmutable;
 
+		t.deco = null;
+		t.arrayof = null;
+		t.pto = null;
+		t.rto = null;
+		t.cto = null;
+		t.ito = null;
+		t.sto = null;
+		t.scto = null;
+        t.wto = null;
+        t.swto = null;
+		t.vtinfo = null;
+
+		return t;
+	}
+
+    Type makeShared()
+	{
+		if (sto)
+			return sto;
+
+		Type t = clone();
+		t.mod = MODshared;
+
+		t.deco = null;
+		t.arrayof = null;
+		t.pto = null;
+		t.rto = null;
+		t.cto = null;
+		t.ito = null;
+		t.sto = null;
+		t.scto = null;
+        t.wto = null;
+        t.swto = null;
+		t.vtinfo = null;
+
+		return t;
+	}
+
+    Type makeSharedConst()
+	{
+		if (scto)
+			return scto;
+
+		Type t = clone();
+		t.mod = MODshared | MODconst;
+
+		t.deco = null;
+		t.arrayof = null;
+		t.pto = null;
+		t.rto = null;
+		t.cto = null;
+		t.ito = null;
+		t.sto = null;
+		t.scto = null;
+        t.wto = null;
+        t.swto = null;
+		t.vtinfo = null;
+
+		return t;
+	}
+
+    Type makeWild()
+    {
+        if (wto)
+	        return wto;
+
+        Type t = clone();
+        t.mod = MODwild;
+        t.deco = null;
+        t.arrayof = null;
+        t.pto = null;
+        t.rto = null;
+        t.cto = null;
+        t.ito = null;
+        t.sto = null;
+        t.scto = null;
+        t.wto = null;
+        t.swto = null;
+        t.vtinfo = null;
+        return t;
+    }
+
+    Type makeSharedWild()
+    {
+        if (swto)
+	        return swto;
+
+        Type t = clone();
+        t.mod = MODshared | MODwild;
+        t.deco = null;
+        t.arrayof = null;
+        t.pto = null;
+        t.rto = null;
+        t.cto = null;
+        t.ito = null;
+        t.sto = null;
+        t.scto = null;
+        t.wto = null;
+        t.swto = null;
+        t.vtinfo = null;
+        return t;
+    }
+
+    Type makeMutable()
+    {
+        Type t = clone();
+        t.mod =  mod & MODshared;
+        t.deco = null;
+        t.arrayof = null;
+        t.pto = null;
+        t.rto = null;
+        t.cto = null;
+        t.ito = null;
+        t.sto = null;
+        t.scto = null;
+        t.wto = null;
+        t.swto = null;
+        t.vtinfo = null;
+        return t;
+    }
 
 	/*******************************
 	 * If this is a shell around another type,
@@ -933,9 +1534,53 @@ debug {
 	/**************************
 	 * Return type with the top level of it being mutable.
 	 */
-    Type toHeadMutable() { assert(false,"zd cut"); }
+    Type toHeadMutable()
+	{
+		if (!mod)
+			return this;
 
-    bool isBaseOf(Type t, int* poffset) { assert(false,"zd cut"); }
+		return mutableOf();
+	}
+
+
+    bool isBaseOf(Type t, int* poffset) 
+    { 
+      return false; // assume not
+    }
+	
+   /*******************************
+	 * Determine if converting 'this' to 'to' is an identity operation,
+	 * a conversion to const operation, or the types aren't the same.
+	 * Returns:
+	 *	MATCHequal	'this' == 'to'
+	 *	MATCHconst	'to' is const
+	 *	MATCHnomatch	conversion to mutable or invariant
+	 */
+    MATCH constConv(Type to)
+	{
+		if (equals(to))
+			return MATCHexact;
+		if (ty == to.ty && MODimplicitConv(mod, to.mod))
+			return MATCHconst;
+		return MATCHnomatch;
+	}
+
+	/********************************
+	 * Determine if 'this' can be implicitly converted
+	 * to type 'to'.
+	 * Returns:
+	 *	MATCHnomatch, MATCHconvert, MATCHconst, MATCHexact
+	 */
+    MATCH implicitConvTo(Type to)
+	{
+		//printf("Type.implicitConvTo(this=%p, to=%p)\n", this, to);
+		//printf("from: %s\n", toChars());
+		//printf("to  : %s\n", to.toChars());
+		if (this is to)
+			return MATCHexact;
+
+		return MATCHnomatch;
+	}
 
 
     TypeBasic isTypeBasic() { assert(false); }
@@ -946,8 +1591,28 @@ debug {
 		return null;
 	}
 
+    Identifier getTypeInfoIdent(int internal)
+	{
+		// _init_10TypeInfo_%s
+		auto buf = appender!(char[])();
+		Identifier id;
+      string name;
 
-    Identifier getTypeInfoIdent(int internal) { assert(false,"zd cut"); }
+		if (internal)
+		{
+			buf.put(mangleChar[ty]);
+			if (ty == Tarray)
+				buf.put(mangleChar[(cast(TypeArray)this).next.ty]);
+		}
+		else
+			toDecoBuffer(buf);
+
+      name = format("_D%dTypeInfo_%s6__initZ", 9 + buf.data.length , buf.data);
+
+		id = Identifier.idPool(name);
+		return id;
+	}
+
 
 	/****************************************************
 	 * Get the exact TypeInfo.

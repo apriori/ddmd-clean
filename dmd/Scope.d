@@ -6,21 +6,12 @@ import dmd.Type;
 import std.array;
 import dmd.Module;
 import dmd.ScopeDsymbol;
-import dmd.declarations.FuncDeclaration;
+import dmd.FuncDeclaration;
 import dmd.Dsymbol;
-import dmd.statements.LabelStatement;
-import dmd.statements.SwitchStatement;
-import dmd.statements.TryFinallyStatement;
-import dmd.scopeDsymbols.TemplateInstance;
 import dmd.Statement;
-import dmd.statements.ForeachStatement;
-import dmd.scopeDsymbols.AnonymousAggregateDeclaration;
-import dmd.scopeDsymbols.AggregateDeclaration;
-import dmd.scopeDsymbols.ClassDeclaration;
 import dmd.Identifier;
 import dmd.DocComment;
 
-import dmd.DDMDExtensions;
 
 alias int SCOPE;
 enum
@@ -44,8 +35,6 @@ enum
 
 class Scope
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Scope enclosing;		// enclosing Scope
 
     Module module_;		// Root module

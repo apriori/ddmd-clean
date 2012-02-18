@@ -5,8 +5,6 @@ import std.format;
 
 import dmd.types.TypeQualified;
 import dmd.Identifier;
-import dmd.expressions.IdentifierExp;
-import dmd.expressions.DotIdExp;
 import dmd.types.TypeTypedef;
 import dmd.HdrGenState;
 import std.array;
@@ -16,12 +14,9 @@ import dmd.Type;
 import dmd.Dsymbol;
 
 
-import dmd.DDMDExtensions;
 
 class TypeIdentifier : TypeQualified
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Identifier ident;
 
     this(Loc loc, Identifier ident)
@@ -44,7 +39,7 @@ class TypeIdentifier : TypeQualified
 	{
 		Type.toDecoBuffer(buf, flag);
 		string name = ident.toChars();
-		formattedWrite(buf,"%d%s", name.length, name);
+		formattedWrite(buf,"%s%s", name.length, name);
 	}
 	
     override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)

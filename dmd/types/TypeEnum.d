@@ -4,27 +4,17 @@ import dmd.Global;
 import std.format;
 
 import dmd.Type;
-import dmd.scopeDsymbols.EnumDeclaration;
+import dmd.ScopeDsymbol;
 import dmd.Scope;
-import dmd.expressions.ErrorExp;
 import dmd.Dsymbol;
-import dmd.dsymbols.EnumMember;
 import dmd.HdrGenState;
 import std.array;
 import dmd.Expression;
 import dmd.Identifier;
-import std.array;
-import dmd.expressions.StringExp;
-import dmd.varDeclarations.TypeInfoDeclaration;
-import dmd.varDeclarations.TypeInfoEnumDeclaration;
-
-
-import dmd.DDMDExtensions;
+import dmd.TypeInfoDeclaration;
 
 class TypeEnum : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
     EnumDeclaration sym;
 
     this(EnumDeclaration sym)
@@ -85,8 +75,6 @@ class TypeEnum : Type
 		}
 		buf.put(sym.toChars());
 	}
-
-	
 	
     override bool isintegral()
 	{
@@ -133,17 +121,8 @@ class TypeEnum : Type
 		return sym.memtype.isunsigned();
 	}
 	
-	
-	
-	
-	
-	
-	
     override TypeInfoDeclaration getTypeInfoDeclaration()
 	{
 		return new TypeInfoEnumDeclaration(this);
 	}
-	
-	
-
 }

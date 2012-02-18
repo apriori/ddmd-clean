@@ -1,8 +1,8 @@
 module dmd.Lexer;
 
-import dmd.Global;
+import dmd.BasicUtils;
 import dmd.Token; // Now contains: struct Token, Keyword, static initializers
-import dmd.Module;
+//import dmd.Module;
 import dmd.Identifier;
 
 import std.stdio; // : writeln;
@@ -13,48 +13,51 @@ import std.encoding;
 import std.utf; // toUTF8... see decodeUTF();
 import std.array; // array.appender actually seems to do what dmd's OutBuffer does
     
-version (unittest)
-{
-    import std.file;
-    import std.variant;
-    Lexer lex;
-    alias lex luthor;
-    Variant lois;
-    alias lois lane; // Gotta have a little fun I guess
-}
+
+//static this()
+//{
+//    dmd.Token.initTochars();
+//    dmd.Token.initPrecedence();
+//    dmd.Identifier.initKeywords();
+//    dmd.Identifier.Id.initIdentifiers();
+//}
 
 class Lexer
 {
-    Loc loc;			// for error messages
+   Loc loc;			// for error messages
 
-    char[] srcbuf;	// I think the array holds the endoffset too
-    char* p;		// current character
-    Token token;
-    Module mod;
-    int doDocComment;		// collect doc comment information
-    int anyToken;		// !=0 means seen at least one token
-    int commentToken;		// !=0 means comments are TOKcomment's
+   char[] srcbuf;	// I think the array holds the endoffset too
+   char* p;		// current character
+   size_t endBuf;
+   Token token;
+   string modName; // module name
+   int doDocComment;		// collect doc comment information
+   int anyToken;		// !=0 means seen at least one token
+   int commentToken;		// !=0 means comments are TOKcomment's
 
-    // static, that means globally stored
-    static Token* freelist;
-    // I'm going to define stringtable in dmd.Identifier 
-    //static Identifier[string] stringtable; 
-    static Appender!(char[]) stringbuffer;
+   // static, that means globally stored
+   static Token* freelist;
+   // I'm going to define stringtable in dmd.Identifier 
+   //static Identifier[string] stringtable; 
+   static Appender!(char[]) stringbuffer;
     
+    // I think the tis method could be replaced with something less restrictive
 
-    this(Module mod, char[] srcbuf, uint begoffset, int doDocComment, int commentToken)
+    this(string mod, char[] srcbuf, uint begoffset, int doDocComment, int commentToken)
 	{
-		loc = Loc(mod, 1);
+		loc = Loc( mod, 1);
 
-		this.srcbuf = srcbuf;
+		setBuf( srcbuf );
 		//this.end  = srcbuf.ptr + srcbuf.length;
-		p = srcbuf.ptr + begoffset;
-		this.mod = mod;
+      if (begoffset)
+      { 
+         p += begoffset;
+         error("Not suuposed to use begoffset yet!");   
+      }
+		this.modName = mod;
 		this.doDocComment = doDocComment;
 		this.anyToken = 0;
 		this.commentToken = commentToken;
-      // for some reason this function also gets 
-      // called in dmd.types.Type.Type.init() TODO figure this out
 
       /* If first line starts with '#!', ignore the line
        */
@@ -96,49 +99,15 @@ class Lexer
 			loc.linnum = 2;
 		}
 	}
-      
-    unittest
-    {
-        Module m;
-        char[] testfil;
-        try { testfil = readText!(char[])("./dmd/Lexer.d"); }
-        catch { writeln("Problem reading file in unittest"); }
-        
-        lex = new Lexer( m, testfil, 0, 0, /+comments:yes+/ 1 );
-        auto eatIt = appender!(Token[])();
-        auto spitIt = appender!(char[])();
-        with (lex)
-        {
-            nextToken(); 
-            // We're only doing a thousand now
-            for( int i =0; i<1000; i++)
-            { 
-                eatIt.put(token);
-                nextToken(); 
-                if ( token.value == TOKeof ) 
-                    break;
-            }
-        }
-            // We have an array, now let's put them out to a buffer
-            foreach ( tokIt; eatIt.data )
-            {
-                spitIt.put( tokIt.toChars() ~ " ");
-                static int perLine = 0;
-                if ( perLine > 9 )
-                {
-                    spitIt.put("\n");
-                    perLine = 0;
-                }
-                perLine++;
-            }
-            // Write to a file
-            File outbuf = File("ddmdtrashfile.d","w");
-            outbuf.write( spitIt.data );
-            outbuf.close();
-            // Now run it to see if the damn thing worked!
-            // struct File is easier than I thought I ain't no C programmer!
-    }
 
+   void setBuf( ref char[] srcbuf )
+	{
+      if ( srcbuf[$-1] != '\0' && srcbuf[$-1] != 0x1A) 
+         this.srcbuf = srcbuf ~ '\0'; // cause writeln errors?
+      else this.srcbuf = srcbuf;
+		p = this.srcbuf.ptr;
+	}
+      
     // function bool isKeyword() is in Token
     // I'm not sure who uses it, but it seems useful
 
@@ -287,13 +256,12 @@ class Lexer
                         }
                     } while (*p == '\\');
 
-                    stringbuffer.put('\0');
                     t.ustring = stringbuffer.data.idup;
                     
                     t.postfix = 0;
                     t.value = TOKstring;
                     
-                    if (!global.params.useDeprecated)
+                    if (!lexGlobal.params.useDeprecated)
                         error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", p - pstart, pstart, p - pstart, pstart);
                     return;
                 }
@@ -350,12 +318,12 @@ class Lexer
                     {
                         if (id == Id.DATE)
                         {
-                            t.ustring = global.date.idup;
+                            t.ustring = lexGlobal.date.idup;
                             goto Lstr;
                         }
                         else if (id == Id.TIME)
                         {
-                            t.ustring = global.time.idup;
+                            t.ustring = lexGlobal.time.idup;
                             goto Lstr;
                         }
                         else if (id == Id.VENDOR)
@@ -365,7 +333,7 @@ class Lexer
                         }
                         else if (id == Id.TIMESTAMP)
                         {
-                            t.ustring = global.timestamp.idup;
+                            t.ustring = lexGlobal.timestamp.idup;
                 Lstr:
                             t.value = TOKstring;
                 Llen:
@@ -376,7 +344,7 @@ class Lexer
                             uint major = 0;
                             uint minor = 0;
 
-                            foreach (char cc; global.version_[1..$])
+                            foreach (char cc; lexGlobal.version_[1..$])
                             {
                                 if (std.ascii.isDigit(cc))
                                     minor = minor * 10 + cc - '0';
@@ -746,7 +714,7 @@ class Lexer
                 p++;
                 if (*p == '=')
                 {   p++;
-                    if (*p == '=' && global.params.Dversion == 1)
+                    if (*p == '=' && lexGlobal.params.Dversion == 1)
                     {	p++;
                         t.value = TOKnotidentity;	// !==
                     }
@@ -788,7 +756,7 @@ class Lexer
                 p++;
                 if (*p == '=')
                 {   p++;
-                    if (*p == '=' && global.params.Dversion == 1)
+                    if (*p == '=' && lexGlobal.params.Dversion == 1)
                     {	p++;
                         t.value = TOKidentity;		// ===
                     }
@@ -867,8 +835,14 @@ class Lexer
                     continue;
 
                 default:
-                    {	uint c = *p;
-
+                    {	
+                        if (p >= srcbuf.ptr + srcbuf.length - 1)
+                        {
+                           
+                           error("Lexer: p( %s ) exceeded lexing bounds! ( %s )", p, srcbuf.ptr + srcbuf.length);
+                        }
+                        
+                        uint c = *p;
                         if (c & 0x80)
                         {   c = decodeUTF();
 
@@ -886,7 +860,9 @@ class Lexer
                         if (c < 0x80 && std.ascii.isPrintable(c))
                             error("unsupported char '%c'", c);
                         else
-                            error("unsupported char 0x%02x", c);
+                        {
+                            error("unsupported char 0x%x", c);
+                        }
                         p++;
                         continue;
                     }
@@ -971,7 +947,6 @@ class Lexer
     uint escapeSequence()
     {
         uint c = *p;
-        ///??? char c = *p;
 
         int n;
         int ndigits;
@@ -1165,7 +1140,6 @@ class Lexer
                 case '`':
                     if (c == tc)
                     {
-                        stringbuffer.put('\0');
                         t.ustring = stringbuffer.data.idup;
                         stringPostfix(t);
                         return TOKstring;
@@ -1236,7 +1210,6 @@ class Lexer
                         stringbuffer.put( to!char(v) );
                     }
                     
-                    stringbuffer.put('\0');
                     t.ustring = stringbuffer.data.idup;
                     stringPostfix(t);
                     return TOKstring;
@@ -1422,7 +1395,6 @@ Ldone:
             p++;
         else
             error("delimited string must end in %c\"", delimright);
-        stringbuffer.put( '\0' );
         t.ustring = stringbuffer.data.idup;
         stringPostfix(t);
         return TOKstring;
@@ -1524,7 +1496,6 @@ Lerror:
                 break;
 
                 case '"':
-                stringbuffer.put( '\0' );
                 t.ustring = stringbuffer.data.idup;
                 stringPostfix(t);
                 return TOKstring;
@@ -1681,7 +1652,7 @@ L1:
 
         int i;
         int base;
-        uint c;
+        char c;
         char *start;
         TOK result;
 
@@ -1759,7 +1730,8 @@ L1:
                         else if (c == 'i' || c == 'f' || c == 'F' ||
                                 c == 'e' || c == 'E')
                         {
-real_:	// It's a real number. Back up and rescan as a real
+                     // It's a real number. Back up and rescan as a real
+                     real_:	
                             p = start;
                             return inreal(t);
                         }
@@ -1844,13 +1816,12 @@ real_:	// It's a real number. Back up and rescan as a real
             p++;
         }
 done:
-        stringbuffer.put( '\0' );		// terminate string
         if (state == STATE_octale)
             error("Octal digit expected");
 
         ulong n;			// unsigned >=64 bit integer type
 
-        if ( stringbuffer.data.length == 2
+        if ( stringbuffer.data.length == 1
              && (state == STATE_decimal || state == STATE_0)
             )
             n = stringbuffer.data[0] - '0'; // this calculates a single digit number
@@ -1871,7 +1842,7 @@ done:
                     goto L1;
 
                 case 'l':
-                    if (1 || !global.params.useDeprecated)
+                    if (1 || !lexGlobal.params.useDeprecated)
                         error("'l' suffix is deprecated, use 'L' instead");
                 case 'L':
                     f = FLAGS_long;
@@ -2101,7 +2072,7 @@ done:
                 break;
 
             case 'l':
-                if (!global.params.useDeprecated)
+                if (!lexGlobal.params.useDeprecated)
                     error("'l' suffix is deprecated, use 'L' instead");
             case 'L':
                 result = TOKfloat80v;
@@ -2110,7 +2081,7 @@ done:
         }
         if (*p == 'i' || *p == 'I')
         {
-            if (!global.params.useDeprecated && *p == 'I')
+            if (!lexGlobal.params.useDeprecated && *p == 'I')
                 error("'I' suffix is deprecated, use 'i' instead");
             p++;
             switch (result)
@@ -2141,7 +2112,7 @@ done:
     }
     void error(T...)(Loc loc, string format, T t)
     {
-        if (mod && !global.gag)
+        if (modName && !lexGlobal.gag)
         {
             string p = loc.toChars();
             if ( p )
@@ -2149,11 +2120,11 @@ done:
 
             writefln(format, t);
 
-            if (global.errors >= 20)	// moderate blizzard of cascading messages
-                fatal();          // zd and it's a good thing too!
+            if (lexGlobal.errors >= 20)	// moderate blizzard of cascading messages
+                fatal();          // and it's a good thing too!
         }
 
-        global.errors++;
+        lexGlobal.errors++;
     }
 
     /*********************************************
@@ -2207,11 +2178,10 @@ Lnewline:
                     continue;			// skip white space
 
                 case '_':
-                    if (mod && p[0..8] == "__FILE__")
+                    if (modName && p[0..8] == "__FILE__")
                     {
-                        version (unittest) { lois = TOKfile; }
                         p += 8;
-                        filespec = (loc.filename ? loc.filename : mod.ident.toChars());
+                        filespec = (loc.filename ? loc.filename : modName);
                     }
                     continue;
 
@@ -2234,7 +2204,6 @@ Lnewline:
                                 goto Lerr;
 
                             case '"':
-                                stringbuffer.put( '\0' );
                                 filespec = stringbuffer.data.idup;	
                                 p++;
                                 break;
@@ -2268,18 +2237,6 @@ Lerr:
         error(loc, "#line integer [\"filespec\"]\\n expected");
     }
      
-    
-    unittest //TODO unittest these unittests ( :-)
-    { 
-        auto txt = "   __FILE_", txt2 = " __FILE__"; 
-        lois = 0;
-
-        //lexToken( txt );
-        //assert ( utest != TOKfile );
-        //lexToken( txt2 );
-        //assert ( utest == TOKfile );
-    }
-
     /********************************************
      * Decode UTF character.
      * Issue error messages for invalid sequences.

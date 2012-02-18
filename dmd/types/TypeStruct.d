@@ -5,49 +5,25 @@ import std.format;
 
 import dmd.Type;
 import dmd.types.TypeInstance;
-import dmd.scopeDsymbols.StructDeclaration;
+import dmd.ScopeDsymbol;
 import dmd.Declaration;
-import dmd.expressions.DotVarExp;
 import std.array;
-import dmd.scopeDsymbols.TemplateMixin;
-import dmd.expressions.DotTemplateExp;
-import dmd.expressions.DsymbolExp;
-import dmd.expressions.TypeExp;
-import dmd.dsymbols.EnumMember;
-import dmd.expressions.DotIdExp;
-import dmd.expressions.ScopeExp;
-import dmd.expressions.TupleExp;
-import dmd.scopeDsymbols.TemplateDeclaration;
-import dmd.dsymbols.OverloadSet;
-import dmd.dsymbols.Import;
-import dmd.expressions.DotExp;
-import dmd.expressions.ErrorExp;
 import dmd.Scope;
 import dmd.Dsymbol;
 import dmd.HdrGenState;
 import dmd.Expression;
 import dmd.Identifier;
-import dmd.scopeDsymbols.TemplateInstance;
-import dmd.declarations.FuncDeclaration;
-import dmd.expressions.VarExp;
-import dmd.expressions.CommaExp;
-import dmd.expressions.ThisExp;
-import dmd.expressions.StructLiteralExp;
-import dmd.declarations.SymbolDeclaration;
-import dmd.varDeclarations.TypeInfoDeclaration;
-import dmd.varDeclarations.TypeInfoStructDeclaration;
+import dmd.FuncDeclaration;
+import dmd.TypeInfoDeclaration;
 import dmd.Token;
 import dmd.VarDeclaration;
 
 
 import std.string : toStringz;
 
-import dmd.DDMDExtensions;
 
 class TypeStruct : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
     StructDeclaration sym;
 
     this(StructDeclaration sym)

@@ -2,74 +2,61 @@ module dmd.Dsymbol;
 
 import dmd.Global;
 import dmd.Scope;
-import dmd.Lexer;
+//import dmd.Lexer;
 import dmd.Module;
 import dmd.ScopeDsymbol;
-import std.array;
 import dmd.Identifier;
-import dmd.scopeDsymbols.TemplateInstance;
-import dmd.declarations.SharedStaticCtorDeclaration;
-import dmd.declarations.SharedStaticDtorDeclaration;
 import dmd.HdrGenState;
-import dmd.scopeDsymbols.AggregateDeclaration;
-import dmd.scopeDsymbols.ClassDeclaration;
-import dmd.dsymbols.LabelDsymbol;
+import dmd.Statement;
 import dmd.Type;
-import dmd.Package;
-import dmd.dsymbols.EnumMember;
-import dmd.scopeDsymbols.TemplateDeclaration;
-import dmd.scopeDsymbols.TemplateMixin;
 import dmd.Declaration;
-import dmd.varDeclarations.ThisDeclaration;
-import dmd.declarations.TupleDeclaration;
-import dmd.declarations.TypedefDeclaration;
-import dmd.declarations.AliasDeclaration;
-import dmd.declarations.FuncDeclaration;
-import dmd.declarations.FuncAliasDeclaration;
-import dmd.declarations.FuncLiteralDeclaration;
-import dmd.declarations.CtorDeclaration;
-import dmd.declarations.PostBlitDeclaration;
-import dmd.declarations.DtorDeclaration;
-import dmd.declarations.StaticCtorDeclaration;
-import dmd.declarations.StaticDtorDeclaration;
-import dmd.declarations.InvariantDeclaration;
-import dmd.declarations.UnitTestDeclaration;
-import dmd.declarations.NewDeclaration;
+import dmd.FuncDeclaration;
 import dmd.VarDeclaration;
-import dmd.scopeDsymbols.StructDeclaration;
-import dmd.scopeDsymbols.UnionDeclaration;
-import dmd.scopeDsymbols.InterfaceDeclaration;
-import dmd.scopeDsymbols.WithScopeSymbol;
-import dmd.scopeDsymbols.ArrayScopeSymbol;
-import dmd.dsymbols.Import;
-import dmd.scopeDsymbols.EnumDeclaration;
-import dmd.declarations.DeleteDeclaration;
-import dmd.declarations.SymbolDeclaration;
 import dmd.AttribDeclaration;
-import dmd.dsymbols.OverloadSet;
 import dmd.Expression;
+import dmd.Condition;
 import dmd.Token;
-import dmd.expressions.VarExp;
-import dmd.expressions.FuncExp;
 
-import dmd.DDMDExtensions;
-
+import std.array, std.format;
 import std.stdio;
 
-// TODO: remove dependencies on these
-Expression isExpression(Object o)
+Expression isExpression( Object o )
 {
-    return cast(Expression)o;
+   if ( o.classinfo is Expression.classinfo ) return cast(Expression) o;
+   TypeInfo_Class c = o.classinfo.base;
+   while ( Object.classinfo !is c )
+   {
+      if ( c is Expression.classinfo ) return cast(Expression) o;
+      c = c.base;
+   }
+   // No good
+   return null;
 }
 
-Dsymbol isDsymbol(Object o)
+Type isType( Object o )
 {
-    return cast(Dsymbol)o;
+   if ( o.classinfo is Type.classinfo ) return cast(Type) o;
+   TypeInfo_Class c = o.classinfo.base;
+   while ( Object.classinfo !is c )
+   {
+      if ( c is Type.classinfo ) return cast(Type) o;
+      c = c.base;
+   }
+   return null;
 }
 
-Type isType(Object o)
+Dsymbol isDsymbol( Object o )
 {
-    return cast(Type)o;
+   if ( o.classinfo is Dsymbol.classinfo ) return cast(Dsymbol) o;
+   
+   TypeInfo_Class c = o.classinfo.base;
+   while ( Object.classinfo !is c )
+   {
+      if ( c is Dsymbol.classinfo ) return cast(Dsymbol) o;
+      c = c.base;
+   }
+   // No good, didn't find it
+   return null;
 }
 
 /***********************
@@ -81,7 +68,7 @@ Type getType(Object o)
     Type t = isType(o);
     if (!t)
     {   Expression e = isExpression(o);
-	if (e)
+       if (e)
 	    t = e.type;
     }
     return t;
@@ -165,8 +152,6 @@ enum : ulong
 
 class Dsymbol
 {
-	mixin insertMemberExtension!(typeof(this));
-	
     Identifier ident;
     //Identifier c_ident;
     Dsymbol parent;
@@ -196,11 +181,13 @@ class Dsymbol
 	{
 		return "Dsymbol";
 	}
+   
    LabelDsymbol isLabel()
    {
        assert (false);
    }	
-    void addLocalClass(ClassDeclaration[] aclasses)
+  
+   void addLocalClass(ClassDeclaration[] aclasses)
 	{
    }
 
@@ -541,15 +528,505 @@ class Dsymbol
     ArrayScopeSymbol isArrayScopeSymbol() { return null; }
     Import isImport() { return null; }
     EnumDeclaration isEnumDeclaration() { return null; }
-version (_DH)
-{
-    DeleteDeclaration isDeleteDeclaration() { return null; }
-}
     SymbolDeclaration isSymbolDeclaration() { return null; }
     AttribDeclaration isAttribDeclaration() { return null; }
     OverloadSet isOverloadSet() { return null; }
-version (TARGET_NET)
-{
-    PragmaScope isPragmaScope() { return null; }
+
 }
+
+class AliasThis : Dsymbol
+{
+   // alias Identifier this;
+    Identifier ident;
+
+    this(Loc loc, Identifier ident)
+	{
+		super(null);		// it's anonymous (no identifier)
+		this.loc = loc;
+		this.ident = ident;
+	}
+
+    override Dsymbol syntaxCopy(Dsymbol s)
+	{
+		assert(!s);
+		/* Since there is no semantic information stored here,
+		 * we don't need to copy it.
+		 */
+		return this;
+	}
+	
+	
+    override string kind()
+	{
+		assert(false);
+	}
+		
+    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+	{
+		assert(false);
+	}
+	
+    AliasThis isAliasThis() { return this; }
+}
+
+/* DebugSymbol's happen for statements like:
+ *	debug = identifier;
+ *	debug = integer;
+ */
+class DebugSymbol : Dsymbol
+{
+    uint level;
+
+    this(Loc loc, Identifier ident)
+	{
+		super(ident);
+		this.loc = loc;
+	}
+
+    this(Loc loc, uint level)
+	{
+		this.level = level;
+		this.loc = loc;
+	}
+
+    override Dsymbol syntaxCopy(Dsymbol s)
+	{
+		assert(!s);
+		DebugSymbol ds = new DebugSymbol(loc, ident);
+		ds.level = level;
+		return ds;
+	}
+
+    override bool addMember(Scope sc, ScopeDsymbol sd, bool memnum)
+    {  
+        assert (false);
+    }
+	
+    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+	{
+		buf.put("debug = ");
+		if (ident)
+			buf.put(ident.toChars());
+		else
+			formattedWrite(buf,"%s", level);
+		buf.put(";");
+		buf.put('\n');
+	}
+	
+    override string kind()
+	{
+		return "debug";
+	}
+}
+
+class EnumMember : Dsymbol
+{
+	Expression value;
+	Type type;
+
+	this(Loc loc, Identifier id, Expression value, Type type)
+	{
+		super(id);
+
+		this.value = value;
+		this.type = type;
+		this.loc = loc;
+	}
+
+	Dsymbol syntaxCopy(Dsymbol s)
+	{
+		Expression e = null;
+		if (value)
+			e = value.syntaxCopy();
+
+		Type t = null;
+		if (type)
+			t = type.syntaxCopy();
+
+		EnumMember em;
+		if (s)
+		{	em = cast(EnumMember)s;
+			em.loc = loc;
+			em.value = e;
+			em.type = t;
+		}
+		else
+			em = new EnumMember(loc, ident, e, t);
+		return em;
+	}
+
+	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+	{
+		if (type)
+			type.toCBuffer(buf, ident, hgs);
+		else
+			buf.put(ident.toChars());
+		if (value)
+		{
+			buf.put(" = ");
+			value.toCBuffer(buf, hgs);
+		}
+	}
+
+	//override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
+
+	override string kind()
+	{
+		return "enum member";
+	}
+
+	override void emitComment(Scope sc)
+	{
+		assert(false);
+	}
+
+	override void toDocBuffer(ref Appender!(char[]) buf)
+	{
+		assert(false);
+	}
+
+	override EnumMember isEnumMember() { return this; }
+}
+
+class Import : Dsymbol
+{
+	Identifier[] packages;		// array of Identifier's representing packages
+	Identifier id;		// module Identifier
+	Identifier aliasId;
+	int isstatic;		// !=0 if static import
+
+	// Pairs of alias=name to bind into current namespace
+	Identifier[] names;
+	Identifier[] aliases;
+
+	AliasDeclaration[] aliasdecls;		// AliasDeclarations for names/aliases
+
+	Module mod;
+	Package pkg;		// leftmost package/module
+
+	this(Loc loc, Identifier[] packages, Identifier id, Identifier aliasId, int isstatic)
+	{
+		super(id);
+		
+		assert(id);
+		this.loc = loc;
+		this.packages = packages;
+		this.id = id;
+		this.aliasId = aliasId;
+		this.isstatic = isstatic;
+
+		if (aliasId)
+			this.ident = aliasId;
+		// Kludge to change Import identifier to first package
+		else if ( packages )
+			this.ident = packages[0];
+	}
+	
+	override Import isImport() { return this; }
+
+	void addAlias(Identifier name, Identifier alias_)
+	{
+		if (isstatic)
+			error("cannot have an import bind list");
+
+		if (!aliasId)
+			this.ident = null;	// make it an anonymous import
+
+		names ~= name;
+		aliases ~= alias_;
+	}
+
+	override string kind()
+	{
+		return isstatic ? "static import" : "import";
+	}
+	
+	override Dsymbol syntaxCopy(Dsymbol s)	// copy only syntax trees
+	{
+		assert(false);
+	}
+	
+	void load(Scope sc)
+	{
+		/+ zd cut TODO include again 
+      //writefln("Import::load('%s')", id.toChars());
+
+		// See if existing module
+		Dsymbol[string] dst = Package.resolve(packages, null, pkg);
+
+		Dsymbol s = dst.get( id.toChars(), null );
+		if (s)
+		{
+			if (s.isModule())
+				mod = cast(Module)s;
+			else
+				error("package and module have the same name");
+		}
+		
+		if (!mod)
+		{
+			// Load module
+			mod = Module.load(loc, packages, id);
+			dst.insert(id, mod);		// id may be different from mod.ident,
+							// if so then insert alias
+			if (!mod.importedFrom)
+				mod.importedFrom = sc ? sc.module_.importedFrom : global.rootModule;
+		}
+
+		if (!pkg)
+			pkg = mod;
+
+		//writef("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
+      +/
+	}
+	
+	override void importAll(Scope sc)
+	{
+       /+
+		 if (!mod)
+       {
+           load(sc);
+           mod.importAll(null);
+
+           if (!isstatic && !aliasId && !names)
+           {
+               /* Default to private importing
+                */
+               PROT prot = sc.protection;
+               if (!sc.explicitProtection)
+                   prot = PROTprivate;
+               sc.scopesym.importScope(mod, prot);
+           }
+       }
+       +/
+   }
+
+
+
+   override Dsymbol toAlias()
+   {
+		if (aliasId)
+			return mod;
+		return this;
+	}
+	
+	/*****************************
+	 * Add import to sd's symbol table.
+	 */
+	override bool addMember(Scope sc, ScopeDsymbol sd, bool memnum)
+	{
+    assert(false);
+    /+
+		bool result = false;
+
+		if ( names )
+			return Dsymbol.addMember(sc, sd, memnum);
+
+		if (aliasId)
+			result = Dsymbol.addMember(sc, sd, memnum);
+
+		/* Instead of adding the import to sd's symbol table,
+		 * add each of the alias=name pairs
+		 */
+		foreach ( name; names)
+		{
+			auto alias_ = aliases[name];
+
+			if (!alias_)
+				alias_ = name;
+
+			TypeIdentifier tname = new TypeIdentifier(loc, name);
+			AliasDeclaration ad = new AliasDeclaration(loc, alias_, tname);
+			result |= ad.addMember(sc, sd, memnum);
+
+			aliasdecls ~= ad;
+		}
+
+		return result;
+    +/
+	}
+	
+	override bool overloadInsert(Dsymbol s)
+	{
+		// Allow multiple imports of the same name
+		return s.isImport() !is null;
+	}
+	
+	override void toCBuffer( ref Appender!(char[]) buf, ref HdrGenState hgs)
+	{
+		assert(false);
+	}
+
+}
+
+class LabelDsymbol : Dsymbol
+{
+    LabelStatement statement;
+
+    this(Identifier ident)
+	{
+		super(ident);
+	}
+	
+    override LabelDsymbol isLabel()
+	{
+		return this;
+	}
+}
+
+class OverloadSet : Dsymbol
+{
+    Dsymbol[] a;
+
+    this()
+	{
+	}
+	
+    void push(Dsymbol s)
+	{
+		a ~= s;
+	}
+	
+    override OverloadSet isOverloadSet() { return this; }
+
+    override string kind()
+	{
+		return "overloadset";
+	}
+}
+
+class StaticAssert : Dsymbol
+{
+	Expression exp;
+	Expression msg;
+
+	this(Loc loc, Expression exp, Expression msg)
+	{
+		super(Id.empty);
+
+		this.loc = loc;
+		this.exp = exp;
+		this.msg = msg;
+	}
+
+	override Dsymbol syntaxCopy(Dsymbol s)
+	{
+		StaticAssert sa;
+
+		assert(!s);
+		sa = new StaticAssert(loc, exp.syntaxCopy(), msg ? msg.syntaxCopy() : null);
+		return sa;
+	}
+
+	override bool addMember(Scope sc, ScopeDsymbol sd, bool memnum)
+	{
+		return false;		// we didn't add anything
+	}
+
+
+
+
+	override bool oneMember(Dsymbol ps)
+	{
+		//printf("StaticAssert.oneMember())\n");
+		ps = null;
+		return true;
+	}
+
+
+	override string kind()
+	{
+		return "static assert";
+	}
+
+	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+	{
+		buf.put(kind());
+		buf.put('(');
+		exp.toCBuffer(buf, hgs);
+		if (msg)
+		{
+			buf.put(',');
+			msg.toCBuffer(buf, hgs);
+		}
+		buf.put(");");
+		buf.put('\n');
+	}
+}
+
+/* VersionSymbol's happen for statements like:
+ *	version = identifier;
+ *	version = integer;
+ */
+class VersionSymbol : Dsymbol
+{
+    uint level;
+
+    this(Loc loc, Identifier ident)
+	{
+		super(ident);
+		this.loc = loc;
+	}
+
+    this(Loc loc, uint level)
+	{
+		super();
+
+		this.level = level;
+		this.loc = loc;
+	}
+
+    override Dsymbol syntaxCopy(Dsymbol s)
+	{
+		assert(!s);
+		VersionSymbol ds = new VersionSymbol(loc, ident);
+		ds.level = level;
+		return ds;
+	}
+
+    override bool addMember(Scope sc, ScopeDsymbol s, bool memnum)
+	{
+		//printf("VersionSymbol::addMember('%s') %s\n", sd->toChars(), toChars());
+
+		// Do not add the member to the symbol table,
+		// just make sure subsequent debug declarations work.
+		Module m = s.isModule();
+		if (ident)
+		{
+			VersionCondition.checkPredefined(loc, ident.toChars());
+			if (!m)
+				error("declaration must be at module level");
+			else
+			{
+				if ( ident.toChars in m.versionidsNot )
+					error("defined after use");
+				m.versionids[ ident.toChars() ] = true;
+			}
+		}
+		else
+		{
+			if (!m)
+				error("level declaration must be at module level");
+			else
+				m.versionlevel = level;
+		}
+
+		return false;
+	}
+
+    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+	{
+		buf.put("version = ");
+		if (ident)
+			buf.put(ident.toChars());
+		else
+			formattedWrite(buf,"%u", level);
+		buf.put(";");
+		buf.put('\n');
+	}
+
+    override string kind()
+	{
+		return "version";
+	}
 }

@@ -2,166 +2,17 @@ module dmd.Parser;
 
 import dmd.Global;
 import dmd.Expression;
-import dmd.expressions.ShlAssignExp;
-import dmd.expressions.ShrAssignExp;
-import dmd.expressions.UshrAssignExp;
-import dmd.expressions.CatAssignExp;
-import dmd.expressions.FileInitExp;
-import dmd.expressions.LineInitExp;
-import dmd.expressions.TraitsExp;
-import dmd.expressions.AssignExp;
-import dmd.expressions.NewExp;
-import dmd.expressions.ArrayExp;
-import dmd.expressions.DotTemplateInstanceExp;
-import dmd.expressions.NewAnonClassExp;
-import dmd.expressions.DotIdExp;
-import dmd.expressions.PostExp;
-import dmd.expressions.CallExp;
-import dmd.expressions.SliceExp;
-import dmd.expressions.FuncExp;
-import dmd.expressions.AssocArrayLiteralExp;
-import dmd.expressions.ArrayLiteralExp;
-import dmd.expressions.IsExp;
-import dmd.expressions.AssertExp;
-import dmd.expressions.CompileExp;
-import dmd.expressions.FileExp;
-import dmd.expressions.TypeidExp;
-import dmd.expressions.StringExp;
-import dmd.expressions.ScopeExp;
-import dmd.expressions.IdentifierExp;
-import dmd.expressions.DollarExp;
-import dmd.expressions.ThisExp;
-import dmd.expressions.SuperExp;
-import dmd.expressions.NullExp;
-import dmd.expressions.RealExp;
-import dmd.expressions.TypeExp;
-import dmd.expressions.AddrExp;
-import dmd.expressions.IntegerExp;
-import dmd.expressions.CastExp;
-import dmd.expressions.PtrExp;
-import dmd.expressions.NegExp;
-import dmd.expressions.XorAssignExp;
-import dmd.expressions.OrAssignExp;
-import dmd.expressions.UAddExp;
-import dmd.expressions.NotExp;
-import dmd.expressions.ComExp;
-import dmd.expressions.DeleteExp;
-import dmd.expressions.MulAssignExp;
-import dmd.expressions.ModAssignExp;
-import dmd.expressions.MinAssignExp;
-import dmd.expressions.DivAssignExp;
-import dmd.expressions.AndAssignExp;
-import dmd.expressions.AddAssignExp;
-import dmd.expressions.PowAssignExp;
-import dmd.expressions.CommaExp;
-import dmd.expressions.XorExp;
-import dmd.expressions.CondExp;
-import dmd.expressions.CmpExp;
-import dmd.expressions.InExp;
-import dmd.expressions.OrOrExp;
-import dmd.expressions.OrExp;
-import dmd.expressions.AddExp;
-import dmd.expressions.MinExp;
-import dmd.expressions.CatExp;
-import dmd.expressions.AndAndExp;
-import dmd.expressions.EqualExp;
-import dmd.expressions.ShlExp;
-import dmd.expressions.ShrExp;
-import dmd.expressions.DivExp;
-import dmd.expressions.MulExp;
-import dmd.expressions.ModExp;
-import dmd.expressions.UshrExp;
-import dmd.expressions.IdentityExp;
-import dmd.expressions.AndExp;
-import dmd.expressions.PowExp;
+import dmd.UnaExp;
+import dmd.BinExp;
 
-// import dmd.ScopeDsymbol; // the rest derive from this
-import dmd.scopeDsymbols.AggregateDeclaration;
-import dmd.scopeDsymbols.AnonymousAggregateDeclaration;
-import dmd.scopeDsymbols.ClassDeclaration;
-import dmd.scopeDsymbols.EnumDeclaration;
-import dmd.scopeDsymbols.InterfaceDeclaration;
-import dmd.scopeDsymbols.StructDeclaration;
-import dmd.scopeDsymbols.TemplateDeclaration;
-import dmd.scopeDsymbols.TemplateInstance;
-import dmd.scopeDsymbols.TemplateMixin;
-import dmd.scopeDsymbols.UnionDeclaration;
-
-// import dmd.Declarations; //  different kinds here
-import dmd.declarations.AliasDeclaration;
-import dmd.declarations.CtorDeclaration;
+import dmd.ScopeDsymbol;
 import dmd.Declaration;
-import dmd.declarations.DeleteDeclaration;
-import dmd.declarations.DtorDeclaration;
-import dmd.declarations.FuncDeclaration;
-import dmd.declarations.FuncLiteralDeclaration;
-import dmd.declarations.InvariantDeclaration;
-import dmd.declarations.NewDeclaration;
-import dmd.declarations.PostBlitDeclaration;
-import dmd.declarations.SharedStaticCtorDeclaration;
-import dmd.declarations.SharedStaticDtorDeclaration;
-import dmd.declarations.StaticCtorDeclaration;
-import dmd.declarations.StaticDtorDeclaration;
-import dmd.declarations.TypedefDeclaration;
-import dmd.declarations.UnitTestDeclaration;
-
-import dmd.attribDeclarations.AlignDeclaration;
-import dmd.attribDeclarations.AnonDeclaration;
-import dmd.attribDeclarations.CompileDeclaration;
-import dmd.attribDeclarations.ConditionalDeclaration;
-import dmd.attribDeclarations.LinkDeclaration;
-import dmd.attribDeclarations.PragmaDeclaration;
-import dmd.attribDeclarations.ProtDeclaration;
-import dmd.attribDeclarations.StaticIfDeclaration;
-import dmd.attribDeclarations.StorageClassDeclaration;
-
-import dmd.Condition;
-import dmd.conditions.StaticIfCondition;
-import dmd.conditions.VersionCondition;
-import dmd.conditions.DebugCondition;
-
+import dmd.FuncDeclaration;
 import dmd.TemplateParameter;
-import dmd.templateParameters.TemplateAliasParameter;
-import dmd.templateParameters.TemplateTupleParameter;
-import dmd.templateParameters.TemplateThisParameter;
-import dmd.templateParameters.TemplateValueParameter;
-import dmd.templateParameters.TemplateTypeParameter;
-
 import dmd.Statement;
-import dmd.statements.CaseRangeStatement;
-import dmd.statements.LabelStatement;
-import dmd.statements.ExpStatement;
-import dmd.statements.StaticAssertStatement;
-import dmd.statements.DeclarationStatement;
-import dmd.statements.ScopeStatement;
-import dmd.statements.PragmaStatement;
-import dmd.statements.WhileStatement;
-import dmd.statements.DoStatement;
-import dmd.statements.ForStatement;
-import dmd.statements.OnScopeStatement;
-import dmd.statements.IfStatement;
-import dmd.statements.SwitchStatement;
-import dmd.statements.CaseStatement;
-import dmd.statements.DefaultStatement;
-import dmd.statements.GotoDefaultStatement;
-import dmd.statements.GotoCaseStatement;
-import dmd.statements.GotoStatement;
-import dmd.statements.SynchronizedStatement;
-import dmd.statements.WithStatement;
-import dmd.statements.TryCatchStatement;
-import dmd.statements.TryFinallyStatement;
-import dmd.statements.ThrowStatement;
-import dmd.statements.VolatileStatement;
-import dmd.statements.ReturnStatement;
-import dmd.statements.BreakStatement;
-import dmd.statements.ContinueStatement;
-import dmd.statements.AsmStatement;
-import dmd.statements.ForeachRangeStatement;
-import dmd.statements.ForeachStatement;
-import dmd.statements.CompileStatement;
-import dmd.statements.CompoundStatement;
-import dmd.statements.ConditionalStatement;
-import dmd.statements.CompoundDeclarationStatement;
+import dmd.Condition;
+
+import dmd.AttribDeclaration;
 
 import dmd.Type;
 import dmd.types.TypeReturn;
@@ -180,46 +31,121 @@ import dmd.types.TypeDelegate;
 import dmd.types.TypeQualified;
 
 import dmd.Initializer;
-import dmd.initializers.StructInitializer;
-import dmd.initializers.ArrayInitializer;
-import dmd.initializers.ExpInitializer;
-import dmd.initializers.VoidInitializer;
 
 import dmd.ModuleDeclaration;
 import dmd.VarDeclaration;
 import dmd.Lexer;
 import dmd.Module;
-import dmd.dsymbols.EnumMember;
 import dmd.BaseClass;
 import dmd.Catch;
 import dmd.Parameter;
 import dmd.Dsymbol;
-import dmd.dsymbols.StaticAssert;
-import dmd.dsymbols.Import;
 import dmd.Identifier;
 import dmd.Token;
-import dmd.ParseStatementFlags; // PSsemi,PScurly,PScurlyscope,PSscope 
-import dmd.dsymbols.DebugSymbol;
-import dmd.dsymbols.VersionSymbol;
-import dmd.dsymbols.AliasThis;
-// ENUMS used: LINK, TOK of course,
 
 import std.exception;
 import std.conv; 
 import std.array;
 
+alias int ParseStatementFlags;
+enum 
+{
+    PSsemi = 1,		// empty ';' statements are allowed
+    PSscope = 2,	// start a new scope
+    PScurly = 4,	// { } statement is required
+    PScurlyscope = 8,	// { } starts a new scope
+}
+
+version (unittest)
+{
+    import std.file, std.stdio;
+    import std.variant;
+    Lexer lex;
+    alias lex luthor;
+    Variant lois;
+    alias lois lane; // Gotta have a little fun I guess
+    Parser pete;
+    alias pete parker;
+}
+
+unittest
+{
+   Module m = new Module("YuppiesName", new Identifier("YuppiesIdent",TOKidentifier), 0, 0);
+   
+   // This enum is just for tests, hopefully it won't interfere with the parser
+   enum CType { zExp, zPrimaryExp, zStatement }
+   struct TestCode { CType type; char[] buf; }
+   TestCode[] testGroup = [
+      {CType.zExp,"23".dup}, 
+      {CType.zStatement,"cast(int) fraggle.north( 23.234,43, 6, 313);".dup}, 
+      {CType.zPrimaryExp,"idnet23".dup},
+      {CType.zStatement,"idnet++;".dup},
+      {CType.zStatement,"if ( x== y ) { Lyasm: return false; goto asdf; }".dup}
+   ];
+   
+   foreach (i; testGroup)
+   {
+      Expression egghead;
+      Statement stan;
+      TestCode test = i;
+      pete = new Parser( m, test.buf, /+comments:yes+/ 1 );
+      pete.nextToken();
+
+      switch (test.type)
+      {
+         case CType.zExp:
+            writeln("parsing and printing zExp...");
+            egghead = pete.parseExpression();
+            writefln("egghead type = %s", egghead.classinfo.name);
+            writefln(
+                  "egghead output = %s , expected: %s",
+                  // This causes a segfault for real number values
+                  // Improve the toChars routine for them!
+                  egghead.toChars(), test.buf );
+            break;
+         case CType.zStatement:
+            writeln("parsing and printing zStatement...");
+                  stan = pete.parseStatement( 0/+ParseStatementFlags+/);
+            writefln( "egghead output = %s , expected: %s",
+                  stan.toChars(), test.buf );
+            break;
+         case CType.zPrimaryExp:
+            writeln("parsing and printing zPrimaryExp...");
+                  egghead = pete.parsePrimaryExp();
+            writefln("egghead output = %s , expected: %s", 
+                  egghead.toChars(), test.buf );
+            break;
+         default:
+            writeln("TestCode type not supported");
+      }
+   }
+   // I only kept this so I could remember how exactly
+   // you write to files!
+   /+
+      File outbuf = File("zdtrashfile.d","w");
+   outbuf.write( spitIt.data );
+   outbuf.close();
+   +/
+   // Now run it to see if the damn thing worked!
+   // struct File is easier than I thought I ain't no C programmer!
+}
+
+
 class Parser : Lexer
 {
     ModuleDeclaration md;
+    Module mod;
     LINK linkage;
     Loc endloc;			// set to location of last right curly
     int inBrackets;		// inside [] of array index or slice
 
     this(Module module_, char[] srcbuf, int doDocComment)
     {
-        super(module_, srcbuf, 0, 0/+doDocComment+/, 1/+commentToken+/);
+        super(module_.srcfilename, srcbuf, 0, 
+            0/+doDocComment+/, 1/+commentToken+/);
         //printf("Parser.Parser()\n");
         linkage = LINKd;
+        this.mod = module_;
         //nextToken();		// start up the scanner
     }
 
@@ -1890,9 +1816,6 @@ Ldeclaration:
 
 			case TOKin:	   stc = STCin;		goto L2;
 			case TOKout:	   stc = STCout;	goto L2;
-version(D1INOUT) {
-			case TOKinout:
-}
 			case TOKref:	   stc = STCref;	goto L2;
 			case TOKlazy:	   stc = STClazy;	goto L2;
 			case TOKscope:	   stc = STCscope;	goto L2;
@@ -1937,42 +1860,42 @@ static if (false) {
 
 			default:
 			Ldefault:
-				stc = (storageClass & (STCin | STCout | STCref | STClazy));
+            stc = (storageClass & (STCin | STCout | STCref | STClazy));
 				if (stc & (stc - 1))	// if stc is not a power of 2
-				error("incompatible parameter storage classes");
+				   error("incompatible parameter storage classes");
 				if ((storageClass & (STCconst | STCout)) == (STCconst | STCout))
-				error("out cannot be const");
+				   error("out cannot be const");
 				if ((storageClass & (STCimmutable | STCout)) == (STCimmutable | STCout))
-				error("out cannot be immutable");
+				   error("out cannot be immutable");
 				if ((storageClass & STCscope) &&
-				(storageClass & (STCref | STCout)))
-				error("scope cannot be ref or out");
+				      (storageClass & (STCref | STCout)))
+				   error("scope cannot be ref or out");
 				at = parseType(ai);
 				ae = null;
 				if (token.value == TOKassign)	// = defaultArg
 				{   nextToken();
-				ae = parseDefaultInitExp();
-				hasdefault = 1;
+				   ae = parseDefaultInitExp();
+				   hasdefault = 1;
 				}
 				else
 				{   if (hasdefault)
-					error("default argument expected for %s",
-						ai ? ai.toChars() : at.toChars());
+					 error("default argument expected for %s",
+						   ai ? ai.toChars() : at.toChars());
 				}
 				if (token.value == TOKdotdotdot)
 				{   /* This is:
-				 *	at ai ...
-				 */
+                 *	at ai ...
+                 */
 
-				if (storageClass & (STCout | STCref))
-					error("variadic argument cannot be out or ref");
-				varargs = 2;
-				a = new Parameter(storageClass, at, ai, ae);
-				arguments ~= (a);
-				nextToken();
-				break;
-				}
-			L3:
+               if (storageClass & (STCout | STCref))
+                  error("variadic argument cannot be out or ref");
+               varargs = 2;
+               a = new Parameter(storageClass, at, ai, ae);
+               arguments ~= (a);
+               nextToken();
+               break;
+            }
+         L3:
 				a = new Parameter(storageClass, at, ai, ae);
 				arguments ~= (a);
 				if (token.value == TOKcomma)
@@ -2689,8 +2612,7 @@ static if (false) {
     /+ TODO This has a different signature in the C++ dmd
         It is :
 Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters **tpl, StorageClass storage_class, int* pdisable)
-    /+ Perhaps it was added more recently than 2.040 +/
-    /+ A little chore for a diligent worker of the future! +/
+    /+ A chore for a diligent worker! +/
     /+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++/
     +/
 
@@ -3198,91 +3120,91 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
           break;
       }
       return a;
-}
-
-void parseContracts(FuncDeclaration f)
-{
-    LINK linksave = linkage;
-
-    // The following is irrelevant, as it is overridden by sc.linkage in
-    // TypeFunction.semantic
-    linkage = LINKd;		// nested functions have D linkage
-L1:
-    switch (token.value)
-    {
-        case TOKlcurly:
-            if (f.frequire || f.fensure)
-                error("missing body { ... } after in or out");
-            f.fbody = parseStatement(PSsemi);
-            f.endloc = endloc;
-            break;
-
-        case TOKbody:
-            nextToken();
-            f.fbody = parseStatement(PScurly);
-            f.endloc = endloc;
-            break;
-
-        case TOKsemicolon:
-            if (f.frequire || f.fensure)
-                error("missing body { ... } after in or out");
-            nextToken();
-            break;
-
-            static if (false) {	// Do we want this for function declarations, so we can do:
-                // int x, y, foo(), z;
-                case TOKcomma:
-                    nextToken();
-                    continue;
-            }
-
-        case TOKin:
-            nextToken();
-            if (f.frequire)
-                error("redundant 'in' statement");
-            f.frequire = parseStatement(PScurly | PSscope);
-            goto L1;
-
-        case TOKout:
-            // parse: out (identifier) { statement }
-            nextToken();
-            if (token.value != TOKlcurly)
-            {
-                check(TOKlparen);
-                if (token.value != TOKidentifier)	   
-                    error("(identifier) following 'out' expected, not %s", token.toChars());
-                f.outId = token.ident;
-                nextToken();
-                check(TOKrparen);
-            }
-            if (f.fensure)
-                error("redundant 'out' statement");
-            f.fensure = parseStatement(PScurly | PSscope);
-            goto L1;
-
-        default:
-            error("semicolon expected following function declaration");
-            break;
     }
-    linkage = linksave;
-}
+
+    void parseContracts(FuncDeclaration f)
+    {
+        LINK linksave = linkage;
+
+        // The following is irrelevant, as it is overridden by sc.linkage in
+        // TypeFunction.semantic
+        linkage = LINKd;		// nested functions have D linkage
+L1:
+        switch (token.value)
+        {
+            case TOKlcurly:
+                if (f.frequire || f.fensure)
+                    error("missing body { ... } after in or out");
+                f.fbody = parseStatement(PSsemi);
+                f.endloc = endloc;
+                break;
+
+            case TOKbody:
+                nextToken();
+                f.fbody = parseStatement(PScurly);
+                f.endloc = endloc;
+                break;
+
+            case TOKsemicolon:
+                if (f.frequire || f.fensure)
+                    error("missing body { ... } after in or out");
+                nextToken();
+                break;
+
+                static if (false) {	// Do we want this for function declarations, so we can do:
+                    // int x, y, foo(), z;
+                    case TOKcomma:
+                        nextToken();
+                        continue;
+                }
+
+            case TOKin:
+                nextToken();
+                if (f.frequire)
+                    error("redundant 'in' statement");
+                f.frequire = parseStatement(PScurly | PSscope);
+                goto L1;
+
+            case TOKout:
+                // parse: out (identifier) { statement }
+                nextToken();
+                if (token.value != TOKlcurly)
+                {
+                    check(TOKlparen);
+                    if (token.value != TOKidentifier)	   
+                        error("(identifier) following 'out' expected, not %s", token.toChars());
+                    f.outId = token.ident;
+                    nextToken();
+                    check(TOKrparen);
+                }
+                if (f.fensure)
+                    error("redundant 'out' statement");
+                f.fensure = parseStatement(PScurly | PSscope);
+                goto L1;
+
+            default:
+                error("semicolon expected following function declaration");
+                break;
+        }
+        linkage = linksave;
+    }
 
     Statement parseStatement(ParseStatementFlags flags)
     {
-    Statement s;
-    Token* t;
-    Condition condition;
-    Statement ifbody;
-		Statement elsebody;
-		bool isfinal;
-		Loc loc = this.loc;
+        Statement s;
+        Token* t;
+        Condition condition;
+        Statement ifbody;
+        Statement elsebody;
+        bool isfinal;
+        Loc loc = this.loc;
 
-		//printf("parseStatement()\n");
+        //printf("parseStatement()\n");
 
-		if (flags & PScurly && token.value != TOKlcurly)
-			error("statement expected to be { }, not %s", token.toChars());
+        if (flags & PScurly && token.value != TOKlcurly)
+            error("statement expected to be { }, not %s", token.toChars());
 
-		switch (token.value)
+      switch (token.value)
 		{
 		case TOKidentifier:
 			/* A leading identifier can be a declaration, label, or expression.
@@ -3299,7 +3221,7 @@ L1:
              s = new LabelStatement(loc, ident, s);
              break;
          }
-         // fallthrough to TOKdot
+         // fallthrough to TOKdot : I'm not sure this is legal D 
       case TOKdot:
 		case TOKtypeof:
 			if (isDeclaration(&token, 2, TOKreserved, false))
@@ -3355,32 +3277,32 @@ L1:
 
 		case TOKstatic:
 		{   // Look ahead to see if it's static assert() or static if()
-			Token* tt;
+          Token* tt;
 
-			tt = peek(&token);
-			if (tt.value == TOKassert)
-			{
-				nextToken();
-				s = new StaticAssertStatement(parseStaticAssert());
-				break;
-			}
-			if (tt.value == TOKif)
-			{
-				nextToken();
-				condition = parseStaticIfCondition();
-				goto Lcondition;
-			}
-	        if (tt.value == TOKstruct || tt.value == TOKunion || tt.value == TOKclass)
-	        {
-		        nextToken();
-		        auto a = parseBlock();
-		        Dsymbol d = new StorageClassDeclaration(STCstatic, a);
-		        s = new DeclarationStatement(loc, d);
-		        if (flags & PSscope)
-		            s = new ScopeStatement(loc, s);
-		        break;
-	        }
-			goto Ldeclaration;
+          tt = peek(&token);
+          if (tt.value == TOKassert)
+          {
+              nextToken();
+              s = new StaticAssertStatement(parseStaticAssert());
+              break;
+          }
+          if (tt.value == TOKif)
+          {
+              nextToken();
+              condition = parseStaticIfCondition();
+              goto Lcondition;
+          }
+          if (tt.value == TOKstruct || tt.value == TOKunion || tt.value == TOKclass)
+          {
+              nextToken();
+              auto a = parseBlock();
+              Dsymbol d = new StorageClassDeclaration(STCstatic, a);
+              s = new DeclarationStatement(loc, d);
+              if (flags & PSscope)
+                  s = new ScopeStatement(loc, s);
+              break;
+          }
+          goto Ldeclaration;
 		}
 
 		case TOKfinal:
@@ -5092,57 +5014,57 @@ Lerror:
         return 0;
     }
 
-Expression parseExpression()
-{
-    Expression e;
-    Expression e2;
-    Loc loc = this.loc;
+   Expression parseExpression()
+   {
+      Expression e;
+      Expression e2;
+      Loc loc = this.loc;
 
-    //printf("Parser.parseExpression() loc = %d\n", loc.linnum);
-    e = parseAssignExp();
-    while (token.value == TOKcomma)
-    {
-        nextToken();
-        e2 = parseAssignExp();
-        e = new CommaExp(loc, e, e2);
-        loc = this.loc;
-    }
-    return e;
-}
+      //printf("Parser.parseExpression() loc = %d\n", loc.linnum);
+      e = parseAssignExp();
+      while (token.value == TOKcomma)
+      {
+         nextToken();
+         e2 = parseAssignExp();
+         e = new CommaExp(loc, e, e2);
+         loc = this.loc;
+      }
+      return e;
+   }
 
-Expression parsePrimaryExp()
-{
-    Expression e;
-    Type t;
-    Identifier id;
-    TOK save;
-    Loc loc = this.loc;
+   Expression parsePrimaryExp()
+   {
+      Expression e;
+      Type t;
+      Identifier id;
+      TOK save;
+      Loc loc = this.loc;
 
-    //printf("parsePrimaryExp(): loc = %d\n", loc.linnum);
-    switch (token.value)
-    {
-        case TOKidentifier:
+      //printf("parsePrimaryExp(): loc = %d\n", loc.linnum);
+      switch (token.value)
+      {
+         case TOKidentifier:
             id = token.ident;
             nextToken();
             if (token.value == TOKnot && peekNext() != TOKis)
             {	// identifier!(template-argument-list)
-                TemplateInstance tempinst;
+               TemplateInstance tempinst;
 
-                tempinst = new TemplateInstance(loc, id);
-                nextToken();
-                if (token.value == TOKlparen)
-                    // ident!(template_arguments)
-                    tempinst.tiargs = parseTemplateArgumentList();
+               tempinst = new TemplateInstance(loc, id);
+               nextToken();
+               if (token.value == TOKlparen)
+                  // ident!(template_arguments)
+                  tempinst.tiargs = parseTemplateArgumentList();
                 else
                     // ident!template_argument
                     tempinst.tiargs = parseTemplateArgument();
                 e = new ScopeExp(loc, tempinst);
-			}
-			else
-			e = new IdentifierExp(loc, id);
-			break;
+            }
+            else
+                e = new IdentifierExp(loc, id);
+            break;
 
-		case TOKdollar:
+        case TOKdollar:
 			if (!inBrackets)
 			error("'$' is valid only inside [] of index or slice");
 			e = new DollarExp(loc);
@@ -5505,7 +5427,7 @@ Expression parsePrimaryExp()
 				else if (keys)
 				{	
 					error("'key:value' expected for associative array literal");
-					delete keys;
+					//delete keys;
 					keys = null;
 				}
 				values ~= (e2);
@@ -5747,112 +5669,113 @@ Lmod1:
                 break;
             }
 
-        case TOKlparen:
+            case TOKlparen:
             {   Token* tk;
 
                 tk = peek(&token);
-                version (CCASTSYNTAX) {
+                version (CCASTSYNTAX) 
+                {
                     // If cast
                     if (isDeclaration(tk, 0, TOKrparen, true))
                     {
                         tk = peek(tk);		// skip over right parenthesis
                         switch (tk.value)
                         {
-                            case TOKnot:
-                                tk = peek(tk);
-                                if (tk.value == TOKis)	// !is
-                                    break;
-                            case TOKdot:
-                            case TOKplusplus:
-                            case TOKminusminus:
-                            case TOKdelete:
-                            case TOKnew:
-                            case TOKlparen:
-                            case TOKidentifier:
-                            case TOKthis:
-                            case TOKsuper:
-                            case TOKint32v:
-                            case TOKuns32v:
-                            case TOKint64v:
-                            case TOKuns64v:
-                            case TOKfloat32v:
-                            case TOKfloat64v:
-                            case TOKfloat80v:
-                            case TOKimaginary32v:
-                            case TOKimaginary64v:
-                            case TOKimaginary80v:
-                            case TOKnull:
-                            case TOKtrue:
-                            case TOKfalse:
-                            case TOKcharv:
-                            case TOKwcharv:
-                            case TOKdcharv:
-                            case TOKstring:
-                                static if (false) {
-                                    case TOKtilde:
-                                    case TOKand:
-                                    case TOKmul:
-                                    case TOKmin:
-                                    case TOKadd:
-                                }
-                            case TOKfunction:
-                            case TOKdelegate:
-                            case TOKtypeof:
-                            case TOKfile:
-                            case TOKline:
-                            case TOKwchar: case TOKdchar:
-                            case TOKbit: case TOKbool: case TOKchar:
-                            case TOKint8: case TOKuns8:
-                            case TOKint16: case TOKuns16:
-                            case TOKint32: case TOKuns32:
-                            case TOKint64: case TOKuns64:
-                            case TOKfloat32: case TOKfloat64: case TOKfloat80:
-                            case TOKimaginary32: case TOKimaginary64: case TOKimaginary80:
-                            case TOKcomplex32: case TOKcomplex64: case TOKcomplex80:
-                            case TOKvoid:		// (type)int.size
-                                {	
-                                    // (type) una_exp
-                                    nextToken();
-                                    Type t = parseType();
-                                    check(TOKrparen);
+                        case TOKnot:
+                            tk = peek(tk);
+                            if (tk.value == TOKis)	// !is
+                                break;
+                        case TOKdot:
+                        case TOKplusplus:
+                        case TOKminusminus:
+                        case TOKdelete:
+                        case TOKnew:
+                        case TOKlparen:
+                        case TOKidentifier:
+                        case TOKthis:
+                        case TOKsuper:
+                        case TOKint32v:
+                        case TOKuns32v:
+                        case TOKint64v:
+                        case TOKuns64v:
+                        case TOKfloat32v:
+                        case TOKfloat64v:
+                        case TOKfloat80v:
+                        case TOKimaginary32v:
+                        case TOKimaginary64v:
+                        case TOKimaginary80v:
+                        case TOKnull:
+                        case TOKtrue:
+                        case TOKfalse:
+                        case TOKcharv:
+                        case TOKwcharv:
+                        case TOKdcharv:
+                        case TOKstring:
+                        static if (false) {
+                            case TOKtilde:
+                            case TOKand:
+                            case TOKmul:
+                            case TOKmin:
+                            case TOKadd:
+                        }
+                        case TOKfunction:
+                        case TOKdelegate:
+                        case TOKtypeof:
+                        case TOKfile:
+                        case TOKline:
+                        case TOKwchar: case TOKdchar:
+                        case TOKbit: case TOKbool: case TOKchar:
+                        case TOKint8: case TOKuns8:
+                        case TOKint16: case TOKuns16:
+                        case TOKint32: case TOKuns32:
+                        case TOKint64: case TOKuns64:
+                        case TOKfloat32: case TOKfloat64: case TOKfloat80:
+                        case TOKimaginary32: case TOKimaginary64: case TOKimaginary80:
+                        case TOKcomplex32: case TOKcomplex64: case TOKcomplex80:
+                        case TOKvoid:		// (type)int.size
+                        {	
+                            // (type) una_exp
+                            nextToken();
+                            Type t = parseType();
+                            check(TOKrparen);
 
-                                    // if .identifier
-                                    if (token.value == TOKdot)
-                                    {
-                                        nextToken();
-							if (token.value != TOKidentifier)
-							{   
-								error("Identifier expected following (type).");
-								return null;
-							}
-							e = typeDotIdExp(loc, t, token.ident);
-							nextToken();
-							e = parsePostExp(e);
-						}
-						else
-						{
-							e = parseUnaryExp();
-							e = new CastExp(loc, e, t);
-							error("C style cast illegal, use %s", e.toChars());
-						}
-						return e;
-					}
-					
-					default:
-						break;	///
-				}
-			}
-}
-			e = parsePrimaryExp();
-			e = parsePostExp(e);
-			break;
-		}
-		default:
-			e = parsePrimaryExp();
-			e = parsePostExp(e);
-			break;
-		}
-		assert(e);
+                            // if .identifier
+                            if (token.value == TOKdot)
+                            {
+                                nextToken();
+                                if (token.value != TOKidentifier)
+                                {   
+                                    error("Identifier expected following (type).");
+                                    return null;
+                                }
+                                e = typeDotIdExp(loc, t, token.ident);
+                                nextToken();
+                                e = parsePostExp(e);
+                            }
+                            else
+                            {
+                                e = parseUnaryExp();
+                                e = new CastExp(loc, e, t);
+                                error("C style cast illegal, use %s", e.toChars());
+                            }
+                            return e;
+                        }
+
+                        default:
+                        break;	///
+                        } /+ switch(tk.value) +/
+                    } /+ if(isDeclaration) +/
+                } /+ version(CCASTSYNTAX) +/
+                e = parsePrimaryExp();
+                e = parsePostExp(e);
+                break;
+            }
+            default:
+            e = parsePrimaryExp();
+            e = parsePostExp(e);
+            break;
+        }
+        assert(e);
 
         // ^^ is right associative and has higher precedence than the unary operators
         while (token.value == TOKpow)
@@ -5999,6 +5922,29 @@ Lmod1:
 		return e;
 	}
 	
+    Expression parseAddExp()
+	{
+		Expression e;
+		Expression e2;
+		Loc loc = this.loc;
+
+		e = parseMulExp();
+		while (1)
+		{
+			switch (token.value)
+			{
+				case TOKadd:    nextToken(); e2 = parseMulExp(); e = new AddExp(loc,e,e2); continue;
+				case TOKmin:    nextToken(); e2 = parseMulExp(); e = new MinExp(loc,e,e2); continue;
+				case TOKtilde:  nextToken(); e2 = parseMulExp(); e = new CatExp(loc,e,e2); continue;
+
+				default:
+				break;
+			}
+			break;
+		}
+		return e;
+	}
+	
     Expression parseShiftExp()
 	{
 		Expression e;
@@ -6021,29 +5967,6 @@ Lmod1:
                 e = new UshrExp(loc,e,e2); continue;
 				default:
                 break;
-			}
-			break;
-		}
-		return e;
-	}
-	
-    Expression parseAddExp()
-	{
-		Expression e;
-		Expression e2;
-		Loc loc = this.loc;
-
-		e = parseMulExp();
-		while (1)
-		{
-			switch (token.value)
-			{
-				case TOKadd:    nextToken(); e2 = parseMulExp(); e = new AddExp(loc,e,e2); continue;
-				case TOKmin:    nextToken(); e2 = parseMulExp(); e = new MinExp(loc,e,e2); continue;
-				case TOKtilde:  nextToken(); e2 = parseMulExp(); e = new CatExp(loc,e,e2); continue;
-
-				default:
-				break;
 			}
 			break;
 		}

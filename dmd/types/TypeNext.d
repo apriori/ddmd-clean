@@ -6,12 +6,9 @@ import dmd.types.TypeAArray;
 import std.array;
 import dmd.Scope;
 
-import dmd.DDMDExtensions;
 
 class TypeNext : Type
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Type next;
 
     this(TY ty, Type next)

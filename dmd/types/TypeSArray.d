@@ -4,20 +4,14 @@ import dmd.Global;
 import std.format;
 
 import dmd.types.TypeArray;
-import dmd.varDeclarations.TypeInfoStaticArrayDeclaration;
 import dmd.types.TypeAArray;
-import dmd.expressions.ArrayExp;
 import dmd.Parameter;
 import dmd.types.TypeIdentifier;
 import dmd.TemplateParameter;
-import dmd.templateParameters.TemplateValueParameter;
 import dmd.types.TypeStruct;
 import dmd.types.TypeTuple;
-import dmd.expressions.VarExp;
-import dmd.expressions.IntegerExp;
 import dmd.Expression;
 import dmd.Type;
-import dmd.declarations.TupleDeclaration;
 import dmd.Token;
 import dmd.Scope;
 import dmd.Dsymbol;
@@ -26,18 +20,13 @@ import std.array;
 import dmd.Identifier;
 import dmd.types.TypeDArray;
 import dmd.types.TypePointer;
-import dmd.varDeclarations.TypeInfoDeclaration;
+import dmd.TypeInfoDeclaration;
 import dmd.ScopeDsymbol;
-import dmd.scopeDsymbols.ArrayScopeSymbol;
-import dmd.expressions.IndexExp;
 
-import dmd.DDMDExtensions;
 
 // Static array, one with a fixed dimension
 class TypeSArray : TypeArray
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Expression dim;
 
     this(Type t, Expression dim)

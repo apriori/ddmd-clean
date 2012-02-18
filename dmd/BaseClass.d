@@ -2,18 +2,15 @@ module dmd.BaseClass;
 
 import dmd.Global;
 import dmd.Type;
-import dmd.scopeDsymbols.ClassDeclaration;
-import dmd.types.TypeFunction;
+import dmd.ScopeDsymbol;
+//import dmd.types.TypeFunction;
 import dmd.Dsymbol;
-import dmd.declarations.FuncDeclaration;
+import dmd.FuncDeclaration;
 
 
-import dmd.DDMDExtensions;
 
 class BaseClass 
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Type type;				// (before semantic processing)
     PROT protection;		// protection for the base interface
 

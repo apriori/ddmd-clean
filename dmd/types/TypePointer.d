@@ -7,17 +7,12 @@ import dmd.types.TypeNext;
 import dmd.HdrGenState;
 import std.array;
 import dmd.Expression;
-import dmd.expressions.NullExp;
-import dmd.varDeclarations.TypeInfoDeclaration;
-import dmd.varDeclarations.TypeInfoPointerDeclaration;
+import dmd.TypeInfoDeclaration;
 
 
-import dmd.DDMDExtensions;
 
 class TypePointer : TypeNext
 {
-	mixin insertMemberExtension!(typeof(this));
-
     this(Type t)
 	{
 		super(Tpointer, t);

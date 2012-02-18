@@ -12,12 +12,9 @@ import dmd.HdrGenState;
 import std.array;
 import dmd.Token;
 
-import dmd.DDMDExtensions;
 
 class TypeTypeof : TypeQualified
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Expression exp;
 
     this(Loc loc, Expression exp)

@@ -5,12 +5,9 @@ import dmd.Identifier;
 
 import std.array; // appender!(char[])
 
-import dmd.DDMDExtensions;
 
 class ModuleDeclaration
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Identifier id;
     Identifier[] packages;		// array of Identifier's representing package
     bool safe;

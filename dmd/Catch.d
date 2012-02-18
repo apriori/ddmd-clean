@@ -6,18 +6,15 @@ import dmd.Scope;
 import dmd.Identifier;
 import dmd.VarDeclaration;
 import dmd.Statement;
-import dmd.types.TypeIdentifier;
+//import dmd.types.TypeIdentifier;
 import dmd.ScopeDsymbol;
 import dmd.HdrGenState;
 
-import dmd.DDMDExtensions;
 
 import std.array;
 
 class Catch 
 {
-	mixin insertMemberExtension!(typeof(this));
-
     Loc loc;
     Type type;
     Identifier ident;
