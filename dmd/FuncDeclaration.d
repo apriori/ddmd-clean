@@ -4,7 +4,6 @@ import dmd.Global;
 import dmd.Declaration;
 import dmd.Token;
 import dmd.ScopeDsymbol;
-//import dmd.Lexer;
 import dmd.Parameter;
 import dmd.Statement;
 import dmd.Identifier;
@@ -453,29 +452,36 @@ class CtorDeclaration : FuncDeclaration
 	
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+    {
+       if (hgs.hdrgen)
+       {   buf.put("static this();");
+          buf.put('\n');
+          return;
+       }
+       buf.put("static this()");
+       bodyToCBuffer(buf, hgs);
+    }
+
 
     override string kind()
-	{
-		return "constructor";
-	}
-	
+    {
+       return "constructor";
+    }
+
     override string toChars()
-	{
-		return "this";
-	}
-	
+    {
+       return "this";
+    }
+
     override bool isVirtual()
-	{
-		return false;
-	}
-	
+    {
+       return false;
+    }
+
     override bool addPreInvariant()
-	{
-		return false;
-	}
+    {
+       return false;
+    }
 	
     override bool addPostInvariant()
 	{
@@ -1082,9 +1088,13 @@ class UnitTestDeclaration : FuncDeclaration
 	}
 
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+    {
+       if (hgs.hdrgen)
+          return;
+       buf.put("unittest");
+       buf.put("\n");
+       bodyToCBuffer(buf, hgs);
+    }
 
     override UnitTestDeclaration isUnitTestDeclaration() { return this; }
 }

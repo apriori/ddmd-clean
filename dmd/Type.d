@@ -328,18 +328,33 @@ class Type
 		assert(false);
 	}
 
-    bool equals(Object o) { assert(false,"zd cut"); }
-    
+    bool equals(Object o) 
+    {   
+       Type t;
+
+       t = cast(Type) o;
+       //printf("Type::equals(%s, %s)\n", toChars(), t->toChars());
+       if (this is o ||
+             (t && (deco == t.deco)) && // deco strings are unique
+             deco != null)             // and semantic() has been run
+       {
+          //printf("deco = '%s', t->deco = '%s'\n", deco, t->deco);
+          return true;
+       }
+       //if (deco && t && t->deco) printf("deco = '%s', t->deco = '%s'\n", deco, t->deco);
+       return false;
+    }
+
     int covariant(Type t) { assert(false,"zd cut"); }
 
     string toChars()
-	{
-		auto buf = appender!(char[])();
+    {
+       auto buf = appender!(char[])();
 
-		HdrGenState hgs;
-		toCBuffer(buf, null, hgs);
-		return buf.data.idup;
-	}
+       HdrGenState hgs;
+       toCBuffer(buf, null, hgs);
+       return buf.data.idup;
+    }
 
     static char needThisPrefix() { assert(false,"zd cut"); }
 

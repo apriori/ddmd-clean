@@ -116,42 +116,6 @@ class Lexer
         return ( std.ascii.isAlphaNum(c) || c == '_' );
     }
 
-    TOK nextToken()
-    {
-        if (token.next)
-        {
-            Token *t = token.next;
-
-            token = *t; // No .dup for struct Token
-            token.next = freelist; // set pointer
-            freelist = t; // recycle original token
-        }
-        else
-        {
-            scan(&token);
-        }
-
-        //token.print();
-        return token.value;
-    }
-
-    /***********************
-     * Look ahead at next token's value.
-     */
-    TOK peekNext()
-    {
-      return peek(&token).value;
-    }
-
-    /***********************
-     * Look 2 tokens ahead at value.
-     */
-    TOK peekNext2()
-    {
-      Token* t = peek(&token);
-      return peek(t).value;
-    }
-
     void scan( Token* t)
     {
         uint lastLine = loc.linnum;
@@ -870,75 +834,118 @@ class Lexer
         }
     }
 
+    TOK nextToken()
+    {
+       if (token.next)
+       {
+          Token *t = token.next;
+
+          token = *t; // No .dup for struct Token
+          t.next = freelist; // set pointer
+          freelist = t; // recycle token.next
+       }
+       else
+       {
+          scan(&token);
+       }
+
+       //token.print();
+       return token.value;
+    }
+
+    /***********************
+     * Look ahead at next token's value.
+     */
+    TOK peekNext()
+    {
+       return peek(&token).value;
+    }
+
+    /***********************
+     * Look 2 tokens ahead at value.
+     */
+    TOK peekNext2()
+    {
+       Token* t = peek(&token);
+       return peek(t).value;
+    }
+
     Token* peek( Token* ct)
     {
-        if (ct.next)
-            return ct.next;
+       if (ct.next)
+       {
+          return ct.next;
+       }
 
-        Token* t = newToken();
-        scan(t);
-        t.next = null;
-        ct.next = t;
-        return t;
+       Token* t = newToken();
+       scan(t);
+       t.next = null;
+       ct.next = t;
+       return t;
     }
 
     // operator new is overloaded in dmd. this is my replacement
     Token* newToken()
     {
-        Token* t;
-        if ( freelist ) 
-        {
-            t = freelist;
-            freelist = t.next;
-        }
-        else t = new Token;
-        return t;
+       Token* t;
+       if ( freelist ) 
+       {
+          t = freelist;
+          freelist = t.next;
+       }
+       else
+       { 
+          static int count = 0;
+          ++count;
+          t = new Token;
+       }
+       return t;
     }
 
     Token* peekPastParen( Token* tk )
     {
-        //printf("peekPastParen()\n");
-        int parens = 1;
-        int curlynest = 0;
-        while (true)
-        {
-            tk = peek(tk);
-            //tk.print();
-            switch (tk.value)
-            {
-                case TOKlparen:
-                    parens++;
-                    continue;
+       //printf("peekPastParen()\n");
+       int parens = 1;
+       int curlynest = 0;
+       while (true)
+       {
+          tk = peek(tk);
+          //tk.print();
+          switch (tk.value)
+          {
+             case TOKlparen:
+                parens++;
+                continue;
 
-                case TOKrparen:
-                    --parens;
-                    if (parens)
-                        continue;
-                    tk = peek(tk);
-                    break;
+             case TOKrparen:
+                --parens;
+                if (parens)
+                   continue;
+                tk = peek(tk);
+                break;
 
-                case TOKlcurly:
-                    curlynest++;
-                    continue;
+             case TOKlcurly:
+                curlynest++;
+                continue;
 
-                case TOKrcurly:
-                    if (--curlynest >= 0)
-                        continue;
-                    break;
+             case TOKrcurly:
+                if (--curlynest >= 0)
+                   continue;
+                break;
 
-                case TOKsemicolon:
-                    if (curlynest)
-                        continue;
-                    break;
+             case TOKsemicolon:
+                if (curlynest)
+                   continue;
+                break;
 
-                case TOKeof:
-                    break;
+             case TOKeof:
+                break;
 
-                default:
-                    continue;
-            }
-            return tk;
-        }
+             default:
+                continue;
+          }
+          return tk;
+       }
     }
 
     /*******************************************
@@ -946,74 +953,74 @@ class Lexer
      */
     uint escapeSequence()
     {
-        uint c = *p;
+       uint c = *p;
 
-        int n;
-        int ndigits;
+       int n;
+       int ndigits;
 
-        switch (c)
-        {
-            case '\'':
-            case '"':
-            case '?':
-            case '\\':
-        Lconsume:
-                p++;
-                break;
+       switch (c)
+       {
+          case '\'':
+          case '"':
+          case '?':
+          case '\\':
+Lconsume:
+             p++;
+             break;
 
-            case 'a':	c = 7;	goto Lconsume;
-            case 'b':	c = 8;	goto Lconsume;
-            case 'f':	c = 12;		goto Lconsume;
-            case 'n':   c = 10;		goto Lconsume;
-            case 'r':	c = 13;		goto Lconsume;
-            case 't':	c = 9;		goto Lconsume;
-            case 'v':   c = 11;     goto Lconsume;
-            case 'u':
-                ndigits = 4;
-                goto Lhex;
-            case 'U':
-                ndigits = 8; goto Lhex;
-            case 'x':
-                ndigits = 2;
-        Lhex:
-                p++;
-                c = *p;
-                if (std.ascii.isHexDigit(c))
-                {
-                    uint v;
+          case 'a':	c = 7;	goto Lconsume;
+          case 'b':	c = 8;	goto Lconsume;
+          case 'f':	c = 12;		goto Lconsume;
+          case 'n':   c = 10;		goto Lconsume;
+          case 'r':	c = 13;		goto Lconsume;
+          case 't':	c = 9;		goto Lconsume;
+          case 'v':   c = 11;     goto Lconsume;
+          case 'u':
+                      ndigits = 4;
+                      goto Lhex;
+          case 'U':
+                      ndigits = 8; goto Lhex;
+          case 'x':
+                      ndigits = 2;
+Lhex:
+                      p++;
+                      c = *p;
+                      if (std.ascii.isHexDigit(c))
+                      {
+                         uint v;
 
-                    n = 0;
-                    v = 0;
-                    while (true)
-                    {
-                        if (std.ascii.isDigit(c))
-                            c -= '0';
-                        else if (std.ascii.isLower(c))
-                            c -= 'a' - 10;
-                        else
-                            c -= 'A' - 10;
-                        v = v * 16 + c;
-                        c = *++p;
-                        if (++n == ndigits)
-                            break;
-                        if (!std.ascii.isHexDigit( c ))
-                        {   error("escape hex sequence has %d hex digits instead of %d", n, ndigits);
-                            break;
-                        }
-                    }
-                    if (ndigits != 2 && !std.utf.isValidDchar(v))
-                    {	error("invalid UTF character \\U%08x", v);
-                        v = '?';	// recover with valid UTF character
-                    }
-                    c = v;
-                }
-                else
-                    error("undefined escape hex sequence \\%c\n",c);
-                break;
+                         n = 0;
+                         v = 0;
+                         while (true)
+                         {
+                            if (std.ascii.isDigit(c))
+                               c -= '0';
+                            else if (std.ascii.isLower(c))
+                               c -= 'a' - 10;
+                            else
+                               c -= 'A' - 10;
+                            v = v * 16 + c;
+                            c = *++p;
+                            if (++n == ndigits)
+                               break;
+                            if (!std.ascii.isHexDigit( c ))
+                            {   error("escape hex sequence has %d hex digits instead of %d", n, ndigits);
+                               break;
+                            }
+                         }
+                         if (ndigits != 2 && !std.utf.isValidDchar(v))
+                         {	error("invalid UTF character \\U%08x", v);
+                            v = '?';	// recover with valid UTF character
+                         }
+                         c = v;
+                      }
+                      else
+                         error("undefined escape hex sequence \\%c\n",c);
+                      break;
 
-            case '&':			// named character entity
-            {
-                // My try at this code
+          case '&':			// named character entity
+                      {
+                         // My try at this code
                 // I don't have a test for it yet. TODO write test
                 char* id = p;
                 while (true)
@@ -2396,7 +2403,11 @@ Lerr:
      * separated by a newline.
      */
      // Save DocComments for later
-    static string combineComments(string c1, string c2) { assert(false,"zd cut"); }
+   static string combineComments(string c1, string c2)
+   {  
+      write("combineComments, ");
+      return c1 ~ c2; 
+   }
 
     // I think phobos can do this better, I think!!
     static bool isValidIdentifier(string p)

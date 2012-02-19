@@ -523,87 +523,107 @@ class ConditionalStatement : Statement
 		return a;
 	}
 
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      condition.toCBuffer(buf, hgs);
+      buf.put('\n');
+      buf.put('{');
+      buf.put('\n');
+
+      if (ifbody)
+         ifbody.toCBuffer(buf, hgs);
+      buf.put('}');
+      buf.put('\n');
+      if (elsebody)
+      {
+         buf.put("else");
+         buf.put('\n');
+         buf.put('{');
+         buf.put('\n');
+         elsebody.toCBuffer(buf, hgs);
+         buf.put('}');
+         buf.put('\n');
+      }
+      buf.put('\n');
+   }
+
 }
 
 class ContinueStatement : Statement
 {
-    Identifier ident;
+   Identifier ident;
 
-    this(Loc loc, Identifier ident)
-	{
-		super(loc);
-		this.ident = ident;
-	}
-	
-    override Statement syntaxCopy()
-	{
-		ContinueStatement s = new ContinueStatement(loc, ident);
-		return s;
-	}
+   this(Loc loc, Identifier ident)
+   {
+      super(loc);
+      this.ident = ident;
+   }
 
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("continue");
-		if (ident)
-		{   
-			buf.put(' ');
-			buf.put(ident.toChars());
-		}
-		buf.put(';');
-		buf.put('\n');
-	}
+   override Statement syntaxCopy()
+   {
+      ContinueStatement s = new ContinueStatement(loc, ident);
+      return s;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("continue");
+      if (ident)
+      {   
+         buf.put(' ');
+         buf.put(ident.toChars());
+      }
+      buf.put(';');
+      buf.put('\n');
+   }
 
 }
 
 class DefaultStatement : Statement
 {
-    Statement statement;
+   Statement statement;
 
-    this(Loc loc, Statement s)
-	{
-		super(loc);
-		this.statement = s;
-	}
-	
-    override Statement syntaxCopy()
-	{
-		DefaultStatement s = new DefaultStatement(loc, statement.syntaxCopy());
-		return s;
-	}
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("default:\n");
-		statement.toCBuffer(buf, hgs);
-	}
+   this(Loc loc, Statement s)
+   {
+      super(loc);
+      this.statement = s;
+   }
+
+   override Statement syntaxCopy()
+   {
+      DefaultStatement s = new DefaultStatement(loc, statement.syntaxCopy());
+      return s;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("default:\n");
+      statement.toCBuffer(buf, hgs);
+   }
 
 }
 
 class DoStatement : Statement
 {
-    Statement body_;
-    Expression condition;
+   Statement body_;
+   Expression condition;
 
-    this(Loc loc, Statement b, Expression c)
-	{
-		super(loc);
-		body_ = b;
-		condition = c;
-	}
-	
-    override Statement syntaxCopy()
-	{
-		DoStatement s = new DoStatement(loc, body_ ? body_.syntaxCopy() : null, condition.syntaxCopy());
-		return s;
-	}
+   this(Loc loc, Statement b, Expression c)
+   {
+      super(loc);
+      body_ = b;
+      condition = c;
+   }
 
-    override bool hasBreak()
-	{
-		return true;
+   override Statement syntaxCopy()
+   {
+      DoStatement s = new DoStatement(loc, body_ ? body_.syntaxCopy() : null, condition.syntaxCopy());
+      return s;
+   }
+
+   override bool hasBreak()
+   {
+      return true;
 	}
 
     override bool hasContinue()

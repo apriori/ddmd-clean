@@ -66,57 +66,81 @@ version (unittest)
     alias lois lane; // Gotta have a little fun I guess
     Parser pete;
     alias pete parker;
+    static int hits = 0;
 }
 
 unittest
 {
    Module m = new Module("YuppiesName", new Identifier("YuppiesIdent",TOKidentifier), 0, 0);
    
-   // This enum is just for tests, hopefully it won't interfere with the parser
-   enum CType { zExp, zPrimaryExp, zStatement }
-   struct TestCode { CType type; char[] buf; }
-   TestCode[] testGroup = [
-      {CType.zExp,"23".dup}, 
-      {CType.zStatement,"cast(int) fraggle.north( 23.234,43, 6, 313);".dup}, 
-      {CType.zPrimaryExp,"idnet23".dup},
-      {CType.zStatement,"idnet++;".dup},
-      {CType.zStatement,"if ( x== y ) { Lyasm: return false; goto asdf; }".dup}
-   ];
-   
-   foreach (i; testGroup)
-   {
-      Expression egghead;
-      Statement stan;
-      TestCode test = i;
-      pete = new Parser( m, test.buf, /+comments:yes+/ 1 );
-      pete.nextToken();
+   //auto srcfilebuf = readText!(char[])("./dmd/Parser.d");
+   auto srcfilebuf = readText!(char[])("../test.d");
+   //char[] srcfilebuf = "Module stan = 3;".dup;
+   pete = new Parser( m, srcfilebuf, /+comments:yes+/ 1 );
+   pete.nextToken();
+   /+/
+   writeln("Input: \"", srcfilebuf,"\", Token: ", pete.token.toChars(), " Line: ", __LINE__);
 
-      switch (test.type)
+   Statement steve = pete.parseStatement(PSsemi | PScurlyscope);
+   writeln("Result: \"", steve.toChars(),"\"" ); 
+   // +/
+   version(all){
+   m.members = pete.parseModule();
+   m.md = pete.md;
+   auto spitIt = m.toChars();
+
+   auto outbuf = File("ParserTrashyTrashyTrash.d","w");
+   outbuf.write( spitIt );
+   outbuf.close();
+   }
+   version(none)
+   {
+      // This enum is just for tests, hopefully it won't interfere with the parser
+      enum CType { zExp, zPrimaryExp, zStatement }
+      struct TestCode { CType type; char[] buf; }
+      TestCode[] testGroup = [
+         {CType.zExp,"23".dup}, 
+         {CType.zStatement,"cast(int) fraggle.north( 23.234,43, 6, 313);".dup}, 
+         {CType.zPrimaryExp,"idnet23".dup},
+         {CType.zStatement,"idnet++;".dup},
+         {CType.zStatement,"if ( x== y ) { Lyasm: return false; goto asdf; }".dup}
+      ];
+
+      foreach (i; testGroup)
       {
-         case CType.zExp:
-            writeln("parsing and printing zExp...");
-            egghead = pete.parseExpression();
-            writefln("egghead type = %s", egghead.classinfo.name);
-            writefln(
-                  "egghead output = %s , expected: %s",
-                  // This causes a segfault for real number values
-                  // Improve the toChars routine for them!
-                  egghead.toChars(), test.buf );
-            break;
-         case CType.zStatement:
-            writeln("parsing and printing zStatement...");
-                  stan = pete.parseStatement( 0/+ParseStatementFlags+/);
-            writefln( "egghead output = %s , expected: %s",
-                  stan.toChars(), test.buf );
-            break;
-         case CType.zPrimaryExp:
-            writeln("parsing and printing zPrimaryExp...");
-                  egghead = pete.parsePrimaryExp();
-            writefln("egghead output = %s , expected: %s", 
-                  egghead.toChars(), test.buf );
-            break;
-         default:
-            writeln("TestCode type not supported");
+         Expression egghead;
+         Statement stan;
+         TestCode test = i;
+         pete = new Parser( m, test.buf, /+comments:yes+/ 1 );
+         pete.nextToken();
+
+         switch (test.type)
+         {
+            case CType.zExp:
+               writeln("parsing and printing zExp...");
+               egghead = pete.parseExpression();
+               writefln("egghead type = %s", egghead.classinfo.name);
+               writefln(
+                     "egghead output = %s , expected: %s",
+                     // This causes a segfault for real number values
+                     // Improve the toChars routine for them!
+                     egghead.toChars(), test.buf );
+               break;
+            case CType.zStatement:
+               writeln("parsing and printing zStatement...");
+               stan = pete.parseStatement( 0/+ParseStatementFlags+/);
+               writefln( "egghead output = %s , expected: %s",
+                     stan.toChars(), test.buf );
+               break;
+            case CType.zPrimaryExp:
+               writeln("parsing and printing zPrimaryExp...");
+               egghead = pete.parsePrimaryExp();
+               writefln("egghead output = %s , expected: %s", 
+                     egghead.toChars(), test.buf );
+               break;
+            default:
+               writeln("TestCode type not supported");
+         }
       }
    }
    // I only kept this so I could remember how exactly
@@ -126,8 +150,8 @@ unittest
    outbuf.write( spitIt.data );
    outbuf.close();
    +/
-   // Now run it to see if the damn thing worked!
-   // struct File is easier than I thought I ain't no C programmer!
+      // Now run it to see if the damn thing worked!
+      // struct File is easier than I thought I ain't no C programmer!
 }
 
 
@@ -142,7 +166,7 @@ class Parser : Lexer
     this(Module module_, char[] srcbuf, int doDocComment)
     {
         super(module_.srcfilename, srcbuf, 0, 
-            0/+doDocComment+/, 1/+commentToken+/);
+            0/+doDocComment+/, 0/+commentToken+/);
         //printf("Parser.Parser()\n");
         linkage = LINKd;
         this.mod = module_;
@@ -941,7 +965,7 @@ Ldeclaration:
 					Type spectype = null;
 					if (isDeclaration(&token, 2, TOKreserved, false))
 					{
-						spectype = parseType(tp_ident);
+						spectype = parseType(&tp_ident);
 					}
 					else
 					{
@@ -1028,7 +1052,7 @@ Ldeclaration:
 				}
 				else
 				{	// ValueParameter
-					tp_valtype = parseType(tp_ident);
+					tp_valtype = parseType(&tp_ident);
 					if (!tp_ident)
 					{
 						error("identifier expected for template value parameter");
@@ -1716,6 +1740,7 @@ Ldeclaration:
 		nextToken();
 
 		UnitTestDeclaration f = new UnitTestDeclaration(loc, this.loc);
+
 		f.fbody = parseStatement(PScurly);
 
 		return f;
@@ -1870,7 +1895,7 @@ static if (false) {
 				if ((storageClass & STCscope) &&
 				      (storageClass & (STCref | STCout)))
 				   error("scope cannot be ref or out");
-				at = parseType(ai);
+				at = parseType(&ai);
 				ae = null;
 				if (token.value == TOKassign)	// = defaultArg
 				{   nextToken();
@@ -1971,7 +1996,7 @@ static if (false) {
 				}
 				else
 				{
-					type = parseType(ident, null);
+					type = parseType(&ident, null);
 					if (id || memtype)
 						error("type only allowed if anonymous enum and no enum type");
 				}
@@ -2267,7 +2292,7 @@ static if (false) {
 		return null;
 	}
 	
-    Type parseType( Identifier pident = null, TemplateParameter[] tpl = [] )
+    Type parseType( Identifier* pident = null, TemplateParameter[] tpl = [] )
 	{
 		Type t;
 
@@ -2346,7 +2371,6 @@ static if (false) {
 		Identifier id;
 		TypeQualified tid;
 
-		//printf("parseBasicType()\n");
 		switch (token.value)
 		{
 			case TOKvoid:	 t = Type.tvoid;  goto LabelX;
@@ -2380,48 +2404,49 @@ static if (false) {
 			id = token.ident;
 			nextToken();
 			if (token.value == TOKnot)
-			{	// ident!(template_arguments)
-			TemplateInstance tempinst = new TemplateInstance(loc, id);
-			nextToken();
-			if (token.value == TOKlparen)
-				// ident!(template_arguments)
-				tempinst.tiargs = parseTemplateArgumentList();
-			else
-				// ident!template_argument
-				tempinst.tiargs = parseTemplateArgument();
-			tid = new TypeInstance(loc, tempinst);
-			goto Lident2;
-			}
+         {	// ident!(template_arguments)
+            TemplateInstance tempinst = new TemplateInstance(loc, id);
+            nextToken();
+            if (token.value == TOKlparen)
+               // ident!(template_arguments)
+               tempinst.tiargs = parseTemplateArgumentList();
+            else
+               // ident!template_argument
+               tempinst.tiargs = parseTemplateArgument();
+            tid = new TypeInstance(loc, tempinst);
+            goto Lident2;
+         }
 		Lident:
 			tid = new TypeIdentifier(loc, id);
 		Lident2:
 			while (token.value == TOKdot)
-			{	nextToken();
-			if (token.value != TOKidentifier)
-			{   error("identifier expected following '.' instead of '%s'", token.toChars());
-				break;
-			}
-			id = token.ident;
-			nextToken();
-			if (token.value == TOKnot)
-			{
-				TemplateInstance tempinst = new TemplateInstance(loc, id);
-				nextToken();
-				if (token.value == TOKlparen)
-				// ident!(template_arguments)
-				tempinst.tiargs = parseTemplateArgumentList();
-				else
-				// ident!template_argument
-				tempinst.tiargs = parseTemplateArgument();
-				tid.addIdent(tempinst.ident);
-			}
-			else
-				tid.addIdent(id);
-			}
-			t = tid;
-			break;
+			{	
+            nextToken();
+			   if (token.value != TOKidentifier)
+			   {   error("identifier expected following '.' instead of '%s'", token.toChars());
+               break;
+            }
+            id = token.ident;
+            nextToken();
+            if (token.value == TOKnot)
+            {
+               TemplateInstance tempinst = new TemplateInstance(loc, id);
+               nextToken();
+               if (token.value == TOKlparen)
+                  // ident!(template_arguments)
+                  tempinst.tiargs = parseTemplateArgumentList();
+               else
+                  // ident!template_argument
+                  tempinst.tiargs = parseTemplateArgument();
+               tid.addIdent(tempinst.ident);
+            }
+            else
+               tid.addIdent(id);
+         }
+         t = tid;
+         break;
 
-		case TOKdot:
+      case TOKdot:
 			// Leading . as in .foo
 			id = Id.empty;
 			goto Lident;
@@ -2616,24 +2641,26 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
     /+ ++++++++++++++++++++++++++++++++++++++++++++++++++++++/
     +/
 
-    Type parseDeclarator(Type t, Identifier pident = null, TemplateParameter[] tpl = null,)
+    Type parseDeclarator(Type t, Identifier* pident, TemplateParameter[] tpl = null,)
 	{
+      //this should eat: "ident" but not "ident = expresn" 
 		Type ts;
 
-		//printf("parseDeclarator(tpl = %p)\n", tpl);
 		t = parseBasicType2(t);
 
 		switch (token.value)
 		{
 
 		case TOKidentifier:
-          if (pident)
-              pident = token.ident;
-          else
-              error("unexpected identifer '%s' in declarator", token.ident.toChars());
-          ts = t;
-          nextToken();
-			break;
+         if (pident)
+            *pident = token.ident;
+         else
+            error("unexpected identifier '%s' in declarator", token.ident.toChars());
+         ts = t;
+
+         nextToken(); // Why does this eat "=" without registering it?
+
+         break;
 
 		case TOKlparen:
 			/* Parse things with parentheses around the identifier, like:
@@ -2833,7 +2860,6 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
         string comment = token.blockComment;
         LINK link = linkage;
 
-        //printf("parseDeclarations() %s\n", token.toChars());
         if (storage_class)
         {	ts = null;		// infer type
             goto L2;
@@ -2867,8 +2893,8 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
         }
 
         storage_class = STCundefined;
-        while (1)
-        {
+      while (1)
+      {
 		  switch (token.value)
         {
 		  case TOKconst:
@@ -2946,6 +2972,7 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
 
         if (token.value == TOKclass)
         {
+            
             AggregateDeclaration s = cast(AggregateDeclaration)parseAggregate();
             s.storage_class |= storage_class;
             a ~= (s);
@@ -2975,7 +3002,6 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
               ts = parseBasicType2(ts);
           }
       }
-
     L2:
       tfirst = null;
 
@@ -2985,7 +3011,7 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
           TemplateParameter[] tpl = null;
 
           ident = null;
-          t = parseDeclarator(ts, ident, tpl);
+          t = parseDeclarator(ts, &ident, tpl);
           assert(t);
           if (!tfirst)
               tfirst = t;
@@ -3189,21 +3215,21 @@ L1:
         linkage = linksave;
     }
 
-    Statement parseStatement(ParseStatementFlags flags)
-    {
-        Statement s;
-        Token* t;
-        Condition condition;
-        Statement ifbody;
-        Statement elsebody;
-        bool isfinal;
-        Loc loc = this.loc;
+   Statement parseStatement(ParseStatementFlags flags)
+   {
+      Statement s;
+      Token* t;
+      Condition condition;
+      Statement ifbody;
+      Statement elsebody;
+      bool isfinal;
+      Loc loc = this.loc;
 
-        //printf("parseStatement()\n");
+      //printf("parseStatement()\n");
 
-        if (flags & PScurly && token.value != TOKlcurly)
-            error("statement expected to be { }, not %s", token.toChars());
-
+      if (flags & PScurly && token.value != TOKlcurly)
+         error("statement expected to be { }, not %s", token.toChars());
+      
       switch (token.value)
 		{
 		case TOKidentifier:
@@ -3221,14 +3247,18 @@ L1:
              s = new LabelStatement(loc, ident, s);
              break;
          }
-         // fallthrough to TOKdot : I'm not sure this is legal D 
+         goto case TOKdot; 
       case TOKdot:
 		case TOKtypeof:
 			if (isDeclaration(&token, 2, TOKreserved, false))
-			goto Ldeclaration;
-			else
-			goto Lexp;
-			break;
+         {
+            goto Ldeclaration;
+			}
+         else
+         {
+			   goto Lexp;
+         }
+         break;
 
 		case TOKassert:
 		case TOKthis:
@@ -3423,7 +3453,7 @@ L1:
 			Statement[] statements;
 			while (token.value != TOKrcurly && token.value != TOKeof)
 			{
-			statements ~= (parseStatement(PSsemi | PScurlyscope));
+			   statements ~= (parseStatement(PSsemi | PScurlyscope));
 			}
 			endloc = this.loc;
 			s = new CompoundStatement(loc, statements);
@@ -3542,7 +3572,7 @@ L1:
 				goto Larg;
 				}
 			}
-			at = parseType(ai);
+			at = parseType(&ai);
 			if (!ai)
 				error("no identifier for declarator %s", at.toChars());
 		  Larg:
@@ -3612,7 +3642,7 @@ L1:
 			Type at;
 			Identifier ai;
 
-			at = parseType(ai);
+			at = parseType(&ai);
 			check(TOKassign);
 			arg = new Parameter(STCundefined, at, ai, null);
 			}
@@ -3941,7 +3971,7 @@ L1:
 				{
 					check(TOKlparen);
 					id = null;
-					tt = parseType(id);
+					tt = parseType(&id);
 					check(TOKrparen);
 				}
 				handler = parseStatement(0);
@@ -4350,9 +4380,8 @@ L1:
 	 *	if *pt is not null, it is set to the ending token, which would be endtok
 	 */
 
-    bool isDeclaration(Token* t, int needId, TOK endtok, bool save)
+    bool isDeclaration( Token* t, int needId, TOK endtok, bool save)
 	{
-		//printf("isDeclaration(needId = %d)\n", needId);
       Token** ptsave = &t;
 		int haveId = 0;
 
@@ -4375,8 +4404,12 @@ L1:
 		{
 			goto Lisnot;
 		}
+      // This peek(t) wasn't in dmd
+      //t = peek(t);
 		if (!isDeclarator(t, haveId, endtok))
+      {
 			goto Lisnot;
+      }
 		if ( needId == 1 ||
 			(needId == 0 && !haveId) ||
 			(needId == 2 &&  haveId))
@@ -4389,15 +4422,13 @@ L1:
 			goto Lisnot;
 
 	Lis:
-		//printf("\tis declaration, t = %s\n", t.toChars());
 		return true;
 
 	Lisnot:
-		//printf("\tis not declaration\n");
 		return false;
 	}
 	
-    bool isBasicType(Token* pt)
+    bool isBasicType(ref Token* pt)
 	{
 		// This code parallels parseBasicType()
 		Token* t = pt;
@@ -4550,14 +4581,12 @@ L1:
 		return false;
 	}
 	
-    bool isDeclarator( Token* pt, ref int haveId, TOK endtok)
+    bool isDeclarator(ref Token* pt, ref int haveId, TOK endtok)
 	{
 		// This code parallels parseDeclarator()
 		Token* t = pt;
 		bool parens;
 
-		//printf("Parser.isDeclarator()\n");
-		//t.print();
 		if (t.value == TOKassign)
 			return false;
 
@@ -4607,7 +4636,9 @@ L1:
 
 				case TOKidentifier:
 					if (haveId)
+               {
 						return false;
+               }
 					haveId = true;
 					t = peek(t);
 					break;
@@ -5303,7 +5334,7 @@ Lerror:
 			if (token.value == TOKlparen)
          {
              nextToken();
-             targ = parseType(ident);
+             targ = parseType(&ident);
              if (token.value == TOKcolon || token.value == TOKequal)
              {
                  tok = token.value;

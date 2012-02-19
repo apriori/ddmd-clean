@@ -108,15 +108,26 @@ class ArrayInitializer : Initializer
 	 * If possible, convert array initializer to array literal.
 	  * Otherwise return null.
 	 */	
-
-	/********************************
-	 * If possible, convert array initializer to associative array initializer.
-	 */
-	
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+{
+    buf.put('[');
+    foreach(j, i; index)
+    {
+        if (j > 0)
+            buf.put(',');
+        Expression ex = i;
+        if (ex)
+        {
+            ex.toCBuffer(buf, hgs);
+            buf.put(':');
+        }
+        Initializer iz = value[j];
+        if (iz)
+            iz.toCBuffer(buf, hgs);
+    }
+    buf.put(']');
+}
+
 
 	
 
@@ -198,35 +209,50 @@ class StructInitializer : Initializer
 	 */
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
-
+    {
+       //printf("StructInitializer::toCBuffer()\n");
+       buf.put('{');
+       foreach(j, i; field)
+       {
+          if (j > 0)
+             buf.put(',');
+          Identifier id = i;
+          if (id)
+          {
+             buf.put(id.toChars());
+             buf.put(':');
+          }
+          Initializer iz = value[j];
+          if (iz)
+             iz.toCBuffer(buf, hgs);
+       }
+       buf.put('}');
+    }
 
     override StructInitializer isStructInitializer() { return this; }
 }
 
 class VoidInitializer : Initializer
 {
-    Type type = null;		// type that this will initialize to
+   Type type = null;		// type that this will initialize to
 
-    this(Loc loc)
-	{
-		super(loc);
-	}
-	
-    override Initializer syntaxCopy()
-	{
-		return new VoidInitializer(loc);
-	}
-	
-	
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("void");
-	}
+   this(Loc loc)
+   {
+      super(loc);
+   }
+
+   override Initializer syntaxCopy()
+   {
+      return new VoidInitializer(loc);
+   }
 
 
-    override VoidInitializer isVoidInitializer() { return this; }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("void");
+   }
+
+
+   override VoidInitializer isVoidInitializer() { return this; }
 }

@@ -4,7 +4,6 @@ import dmd.Global;
 import dmd.Identifier;
 import dmd.Type;
 import dmd.Parser;
-//import dmd.Lexer;
 import dmd.Scope;
 import dmd.ModuleDeclaration;
 import dmd.VarDeclaration;
@@ -14,10 +13,12 @@ import dmd.DocComment;
 import dmd.HdrGenState;
 import dmd.ScopeDsymbol;
 
-
 import std.stdio;
 import std.encoding;
 import std.file;
+import std.array;
+import std.exception;
+import std.format;
 
 // define Package first. Module inherits from Package
 class Package : ScopeDsymbol
@@ -197,46 +198,72 @@ class Module : Package
         // I process NO SEMANTICS AT ALL
     }
 
-    
-    override void toCBuffer(char[] buf, ref HdrGenState hgs)
-    {
-        // I should actually figure this out...
-        // it outputs all of its members as code in sequence...
-        assert(false);
-    }
-    
-    // returns !=0 if module imports itself
-    // this won't be too hard, but it's in module.c, not Module.d
-    int selfImports() { assert(false); }
+   override string toChars()
+   {
+       auto codeBuf = appender!(char[]);
 
-    // I have no idea who Json is.
-    //override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); } 
+       formattedWrite(codeBuf, "// An entire Module! Wow! %s", srcfilename );
+       codeBuf.put("\n");
 
-    override string kind()
-    {
-        return "module";
-    }
+       HdrGenState hgs; // I'll need a new name for HdrGenState!
 
-    void setDocfile()	// set docfile member
-    {
-        assert(false);
-    }
+       toCBuffer( codeBuf, hgs);
+       //string s = assumeUnique(codeBuf.data);
+       foreach(i; 0..31) write( codeBuf.data[i] );
+       writeln();
+       
+   NOTE FUNCTIUON WILL NOT WORK IF YOU MERELY RETURN "QWE" DUHHHHH!!!!
 
-    override void importAll(Scope prevsc) { assert(false,"zd cut"); }
+       return "qwE";
+   }
 
-    // I've said it before, and I'll say it again.
-    // Writing software is easy. 
-    // Just cut out everything.
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      if (md)
+      {
+         buf.put("module ");
+         buf.put(md.toChars());
+         buf.put(";\n");
+      }
+
+      foreach ( i; members)
+      {    
+         i.toCBuffer(buf, hgs);
+      }
+   }
+
+   // returns !=0 if module imports itself
+   // this won't be too hard, but it's in module.c, not Module.d
+   int selfImports() { assert(false); }
+
+   // I have no idea who Json is.
+   //override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); } 
+
+   override string kind()
+   {
+      return "module";
+   }
+
+   void setDocfile()	// set docfile member
+   {
+      assert(false);
+   }
+
+   override void importAll(Scope prevsc) { assert(false,"zd cut"); }
+
+   // I've said it before, and I'll say it again.
+   // Writing software is easy. 
+   // Just cut out everything.
 
 
-    void deleteObjFile() { assert(false,"zd cut"); }
+   void deleteObjFile() { assert(false,"zd cut"); }
 
-    /************************************
-     * Recursively look at every module this module imports,
-     * return TRUE if it imports m.
-     * Can be used to detect circular imports.
-     */
-    bool imports(Module m) { assert(false,"zd cut"); }
+   /************************************
+    * Recursively look at every module this module imports,
+    * return TRUE if it imports m.
+    * Can be used to detect circular imports.
+    */
+   bool imports(Module m) { assert(false,"zd cut"); }
 
-    override Module isModule() { return this; }
+   override Module isModule() { return this; }
 }

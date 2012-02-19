@@ -28,24 +28,51 @@ class AttribDeclaration : Dsymbol
 		return decl;
 	}
 	
+    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+    {
+       // QUALITY decl.length == 0 implies !decl ( "{}" never printed )
+       if (decl)
+       {
+          if (decl.length == 0)
+             buf.put("{}");
+          else if (decl.length == 1)
+             decl[0].toCBuffer(buf, hgs);
+          else
+          {
+             buf.put('\n');
+             buf.put('{');
+             buf.put('\n');
+             foreach ( i; decl)
+             {
+                buf.put("    ");
+                i.toCBuffer(buf, hgs);
+             }
+             buf.put('}');
+          }
+       }
+       else
+          buf.put(';');
+       buf.put('\n');
+    }
+
     override bool addMember(Scope sc, ScopeDsymbol sd, bool memnum)
-	{
-		bool m = false;
-		auto d = include(sc, sd);
+    {
+       bool m = false;
+       auto d = include(sc, sd);
 
-		if (d)
-		{
-            foreach(s; d)
-                m |= s.addMember(sc, sd, m | memnum);
-		}
+       if (d)
+       {
+          foreach(s; d)
+             m |= s.addMember(sc, sd, m | memnum);
+       }
 
-		return m;
-	}
+       return m;
+    }
 
 
-	Dsymbol toAlias() { assert(false); }
+    Dsymbol toAlias() { assert(false); }
 
-	void importAll(Scope sc) { assert(false); }
+    void importAll(Scope sc) { assert(false); }
 
     bool isBaseOf(ClassDeclaration cd, int* poffset) { assert(false); }
 
@@ -55,95 +82,89 @@ class AttribDeclaration : Dsymbol
     }
     Dsymbol syntaxCopy(Dsymbol s)
     {
-        assert(false);
+       assert(false);
     }
-	
-    void setScopeNewSc(Scope sc, StorageClass stc, LINK linkage, PROT protection, int explicitProtection, uint structalign)
-	{
-		if (decl)
-		{
-			Scope newsc = sc;
-			if (stc != sc.stc || linkage != sc.linkage || protection != sc.protection || explicitProtection != sc.explicitProtection || structalign != sc.structalign)
-			{
-				// create new one for changes
-				newsc = sc.clone();				
-				newsc.flags &= ~SCOPEfree;
-				newsc.stc = stc;
-				newsc.linkage = linkage;
-				newsc.protection = protection;
-				newsc.explicitProtection = explicitProtection;
-				newsc.structalign = structalign;
-			}
-			foreach(Dsymbol s; decl)
-				s.setScope(newsc);	// yes, the only difference from semanticNewSc()
-			if (newsc != sc)
-			{
-				sc.offset = newsc.offset;
-				newsc.pop();
-			}
-		}
-	}
-	
-    override void addComment(string comment)
-	{
-		if (comment !is null)
-		{
-			auto d = include(null, null);
-			if (d)
-			{
-				foreach(s; d)
-				{  
-					//printf("AttribDeclaration::addComment %s\n", s.toChars());
-					s.addComment(comment);
-				}
-			}
-		}
-	}
-	
-    override void emitComment(Scope sc)
-	{
-		assert(false);
-	}
-	
-    override string kind()
-	{
-		assert(false);
-	}
-	
-    override bool oneMember(Dsymbol ps)
-	{
-		auto d = include(null, null);
 
-		return Dsymbol.oneMembers(d, ps);
-	}
-	
-	
+    void setScopeNewSc(Scope sc, StorageClass stc, LINK linkage, PROT protection, int explicitProtection, uint structalign)
+    {
+       if (decl)
+       {
+          Scope newsc = sc;
+          if (stc != sc.stc || linkage != sc.linkage || protection != sc.protection || explicitProtection != sc.explicitProtection || structalign != sc.structalign)
+          {
+             // create new one for changes
+             newsc = sc.clone();				
+             newsc.flags &= ~SCOPEfree;
+             newsc.stc = stc;
+             newsc.linkage = linkage;
+             newsc.protection = protection;
+             newsc.explicitProtection = explicitProtection;
+             newsc.structalign = structalign;
+          }
+          foreach(Dsymbol s; decl)
+             s.setScope(newsc);	// yes, the only difference from semanticNewSc()
+          if (newsc != sc)
+          {
+             sc.offset = newsc.offset;
+             newsc.pop();
+          }
+       }
+    }
+
+    override void addComment(string comment)
+    {
+       if (comment !is null)
+       {
+          auto d = include(null, null);
+          if (d)
+          {
+             foreach(s; d)
+             {  
+                //printf("AttribDeclaration::addComment %s\n", s.toChars());
+                s.addComment(comment);
+             }
+          }
+       }
+    }
+
+    override void emitComment(Scope sc)
+    {
+       assert(false);
+    }
+
+    override string kind()
+    {
+       assert(false);
+    }
+
+    override bool oneMember(Dsymbol ps)
+    {
+       auto d = include(null, null);
+
+       return Dsymbol.oneMembers(d, ps);
+    }
+
+
     override void checkCtorConstInit()
-	{
-		auto d = include(null, null);
-		if (d)
-		{
-			foreach(s; d)
-				s.checkCtorConstInit();
-		}
-	}
-	
+    {
+       auto d = include(null, null);
+       if (d)
+       {
+          foreach(s; d)
+             s.checkCtorConstInit();
+       }
+    }
+
     override void addLocalClass(ClassDeclaration[] aclasses)
-	{
-		auto d = include(null, null);
-		if (d)
-		{
+    {
+       auto d = include(null, null);
+       if (d)
+       {
 			foreach(s; d)
 				s.addLocalClass(aclasses);
 		}
 	}
 	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
-    
-	//override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
     	
     override AttribDeclaration isAttribDeclaration() { return this; }
 }
@@ -654,11 +675,12 @@ class StorageClassDeclaration: AttribDeclaration
 		}
 	}
 	
-	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+    {
+       stcToCBuffer(buf, stc);
+       super.toCBuffer(buf, hgs);
+    }
+
 
     static void stcToCBuffer(ref Appender!(char[]) buf, StorageClass stc)
 	{

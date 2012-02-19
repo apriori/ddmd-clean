@@ -23,7 +23,12 @@ import dmd.HdrGenState;
 import std.stdio : writef;
 import std.array, std.format;
 
+
+// ++++++++++++
 // I'm putting all extraneous data and functions up top for now
+// ++++++++++++
+
+
 enum OFFSET_RUNTIME = 0x76543210; // ???
 
 Tuple isTuple(Object o)
@@ -851,12 +856,29 @@ class StructDeclaration : AggregateDeclaration
 		return sd;
 	}
 
-
-
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+{
+    formattedWrite( buf, "%s ", kind());
+    if (!isAnonymous())
+        buf.put(toChars());
+    if (!members)
+    {
+        buf.put(';');
+        buf.put('\n');
+        return;
+    }
+    buf.put('\n');
+    buf.put('{');
+    buf.put('\n');
+    foreach (i; members)
+    {
+        buf.put("    ");
+        i.toCBuffer(buf, hgs);
+    }
+    buf.put('}');
+    buf.put('\n');
+}
+
 
     override string mangle()
 	{
@@ -866,10 +888,9 @@ class StructDeclaration : AggregateDeclaration
 
     override string kind()
 	{
-		assert(false);
+	   return "struct";
 	}
 
-version(DMDV1)
     Expression cloneMembers()
 	{
 		assert(false);

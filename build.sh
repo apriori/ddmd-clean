@@ -3,7 +3,8 @@
 # but supports extra optional command line arguments.
 # Too see the supported args, run: ./build.sh --help
 
-rdmd --main -unittest -m32 -J./dmd -L-L./dmd -L-lLexer ./dmd/Parser 
+#rdmd --main -unittest -m32 -J./dmd -L-L./dmd -L-lLexer ./dmd/Parser 
+rdmd --main -unittest -m32 -J./dmd ./dmd/Parser 
 
 # Old buildscript:
 ##i686-unknown-linux-gnu-g++ -c bridge/bridge.cpp -obridge.o
