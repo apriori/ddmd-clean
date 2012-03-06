@@ -1,15 +1,15 @@
-module dmd.BinExp;
+module dmd.binExp;
 
-import dmd.Global;
-import dmd.Declaration;
-import dmd.Expression;
-import dmd.HdrGenState;
-import dmd.Token;
-import dmd.Type;
-import dmd.Identifier;
-import dmd.VarDeclaration;
-import dmd.Statement;
-//import dmd.Lexer;
+import dmd.global;
+import dmd.declaration;
+import dmd.expression;
+import dmd.hdrGenState;
+import dmd.token;
+import dmd.type;
+import dmd.identifier;
+import dmd.varDeclaration;
+import dmd.statement;
+//import dmd.lexer;
 import std.exception : assumeUnique;
 import std.stdio : writef;
 import std.array;
@@ -47,6 +47,7 @@ class BinExp : Expression
     override Expression syntaxCopy()
 	{
 		BinExp e = cast(BinExp)copy();
+		//BinExp e = this.dup; // superior, but not tested
 		e.type = null;
 		e.e1 = e.e1.syntaxCopy();
 		e.e2 = e.e2.syntaxCopy();
@@ -62,6 +63,11 @@ class BinExp : Expression
 		buf.put(' ');
 		expToCBuffer(buf, hgs, e2, precedence[op] + 1);
 	}
+   
+   void swapOperands()
+   {
+      typeid(Expression).swap(cast(void*) e1, cast(void*) e2);
+   }
 
 }
 
@@ -376,9 +382,9 @@ class IndexExp : BinExp
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
 		expToCBuffer(buf, hgs, e1, PREC_primary);
-		buf.put('[');
+		buf.put("[");
 		expToCBuffer(buf, hgs, e2, PREC_assign);
-		buf.put(']');
+		buf.put("]");
 	}
 }
 
@@ -582,7 +588,7 @@ class RemoveExp : BinExp
 	this(Loc loc, Expression e1, Expression e2)
 	{
 		super(loc, TOKremove, RemoveExp.sizeof, e1, e2);
-		type = Type.tvoid;
+		//type = Type.tvoid;
 	}
 }
 

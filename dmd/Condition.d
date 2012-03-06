@@ -1,11 +1,11 @@
-module dmd.Condition;
+module dmd.condition;
 
-import dmd.Global;
-import dmd.Expression;
+import dmd.global;
+import dmd.expression;
 import dmd.Scope;
-import dmd.ScopeDsymbol;
-import dmd.HdrGenState;
-import dmd.Identifier;
+import dmd.scopeDsymbol;
+import dmd.hdrGenState;
+import dmd.identifier;
 import dmd.Module;
 
 import std.array;
@@ -124,10 +124,12 @@ class StaticIfCondition : Condition
 	    return new StaticIfCondition(loc, exp.syntaxCopy());
 	}
 
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("static if(");
+      exp.toCBuffer(buf, hgs);
+      buf.put(')');
+   }
 }
 
 class VersionCondition : DVCondition
@@ -213,10 +215,13 @@ class VersionCondition : DVCondition
 
     override final void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
     {
-        if (ident !is null) {
-            formattedWrite(buf,"version (%s)", ident.toChars());
-        } else {
-            formattedWrite(buf,"version (%u)", level);
+        if (ident !is null) 
+        {
+            formattedWrite(buf,"version(%s)", ident.toChars());
+        } 
+        else 
+        {
+            formattedWrite(buf,"version(%u)", level);
         }
     }
 }

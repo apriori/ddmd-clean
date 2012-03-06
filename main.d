@@ -1,60 +1,45 @@
-module main;
 
-import dmd.Global;
 import dmd.Module;
-//import dmd.Lexer;
-import dmd.Type;
-import dmd.Id;
-import dmd.Identifier;
-import dmd.Token;
 
-import std.string : toStringz; 
-alias toStringz toCString;
+import dmd.parser, dmd.identifier, dmd.token, std.stdio, std.file;
 
-import std.exception;
-import std.file;
-import std.path; 
-import std.stdio;
-import std.getopt;
-import std.process;
-import std.array; // split, appender
+// Don't worry, there's a method to my madness!!!!
+// Don't worry, there's a method to my madness!!!!
+// Don't worry, there's a method to my madness!!!!
 
-int main(string[] args)
-{
-    // gloabal defaults: see dmd.Global.static this(){}
-    // Actually it would be nice to get rid of Globals.
+int main( string[] 
+args
+)        {
 
-    // Deal with options. Just a stub.
-    // dealWithOptions();
-    // void dealWithOptions()
-    // {
-    // }
+         void next(string s){ write("press Enter..."); stdin.readln(); write(s); }
+   auto str1 = "syntactically Wrong{ int Code Buffer; }";
+   
+   auto str2 = "struct Much{ int better; string now; char[] here; }";
+   
+      // By the way, comments don't work yet!
+         auto m = new Module("test", new Identifier("Testy",TOKidentifier),false,false);
+   auto p = new Parser( m, str1, false );
+            writeln("Parsing bad code...");
+   p.parseModule();
+   write(  m.toChars() );
+ 
+            next("\nA little better...\n");
+               p.setBuf( str2 );
+   p.parseModule();
+   
+      
+      write(  m.toChars() );
 
-    /+ In theory you have many files, but I'm just overwhelmed
-    // trying to get it to compile!
-    foreach ( arg; args )
-    {
-        files ~= arg;
-    }
-    +/
-    // These are now initialized in their appropriate modules
-    /+
-    Type.init();
-    Id.initialize();
-    initPrecedence();
-    +/
-    // Gone. I don't know what it did
-    //global.initClasssym();
 
-    // Create Modules
-    // I need to just get 1 module working, so I'm cutting out
-    // much very important stuff
-    Module m;
-    m.read(Loc(0));
-
-    // Parse file
-
-    if (global.errors)
-        fatal();
-    return 0;
+      // Obviously we're not perfect yet!
+   next("Now watch this...\npress Enter!");
+      stdin.readln();
+         p.setBuf( readText!(char[])("main.d") );
+               
+               p.parseModule();
+   
+   write( m.toChars() );
+   writeln("Pretty cool, huh?");
+   
+   return 0;
 }

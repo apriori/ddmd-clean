@@ -1,15 +1,13 @@
-module dmd.BaseClass;
+module dmd.baseClass;
 
-import dmd.Global;
-import dmd.Type;
-import dmd.ScopeDsymbol;
+import dmd.global;
+import dmd.type;
+import dmd.scopeDsymbol;
 //import dmd.types.TypeFunction;
-import dmd.Dsymbol;
-import dmd.FuncDeclaration;
+import dmd.dsymbol;
+import dmd.funcDeclaration;
 
-
-
-class BaseClass 
+class BaseClass : Dobject
 {
     Type type;				// (before semantic processing)
     PROT protection;		// protection for the base interface
@@ -22,7 +20,6 @@ class BaseClass
     //int baseInterfaces_dim;
     BaseClass[] baseInterfaces;		// if BaseClass is an interface, these
 					// are a copy of the InterfaceDeclaration::interfaces
-
     this()
 	{
 	}

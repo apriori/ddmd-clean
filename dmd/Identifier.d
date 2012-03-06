@@ -1,7 +1,7 @@
-module dmd.Identifier;
+module dmd.identifier;
 
-import dmd.BasicUtils;
-import dmd.Token;
+import dmd.utils;
+import dmd.token;
 
 import std.array;
 import std.conv;
@@ -11,7 +11,7 @@ Identifier[string] stringtable;
 
 void initKeywords()
 {
-    foreach ( k; dmd.Token.keywords )
+    foreach ( k; dmd.token.keywords )
     {  
         stringtable[k.name] = new Identifier( k.name, k.value );
     }
@@ -19,7 +19,7 @@ void initKeywords()
 
 mixin( import("Id.txt"));
 
-class Identifier
+class Identifier : Dobject
 {
     TOK value;
     string string_;
@@ -32,7 +32,7 @@ class Identifier
     
     static void initKeywords()
     {
-       foreach ( k; dmd.Token.keywords )
+       foreach ( k; dmd.token.keywords )
        {  
           stringtable[k.name] = new Identifier( k.name, k.value );
        }

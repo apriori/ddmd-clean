@@ -1,14 +1,14 @@
 module dmd.Catch;
 
-import dmd.Global;
-import dmd.Type;
+import dmd.global;
+import dmd.type;
 import dmd.Scope;
-import dmd.Identifier;
-import dmd.VarDeclaration;
-import dmd.Statement;
+import dmd.identifier;
+import dmd.varDeclaration;
+import dmd.statement;
 //import dmd.types.TypeIdentifier;
-import dmd.ScopeDsymbol;
-import dmd.HdrGenState;
+import dmd.scopeDsymbol;
+import dmd.hdrGenState;
 
 
 import std.array;

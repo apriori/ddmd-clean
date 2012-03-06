@@ -1,16 +1,16 @@
-module dmd.Initializer;
+module dmd.initializer;
 
-import dmd.Global;
+import dmd.global;
 import dmd.Scope;
-import dmd.Type;
-import dmd.Expression;
-import dmd.HdrGenState;
-import dmd.Identifier;
-import dmd.ScopeDsymbol;
-import dmd.VarDeclaration;
+import dmd.type;
+import dmd.expression;
+import dmd.hdrGenState;
+import dmd.identifier;
+import dmd.scopeDsymbol;
+import dmd.varDeclaration;
 import std.array;
 
-class Initializer
+class Initializer : Dobject
 {
     Loc loc;
 
@@ -110,11 +110,11 @@ class ArrayInitializer : Initializer
 	 */	
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 {
-    buf.put('[');
+    buf.put("[ ");
     foreach(j, i; index)
     {
         if (j > 0)
-            buf.put(',');
+            buf.put(", ");
         Expression ex = i;
         if (ex)
         {
@@ -125,7 +125,7 @@ class ArrayInitializer : Initializer
         if (iz)
             iz.toCBuffer(buf, hgs);
     }
-    buf.put(']');
+    buf.put(" ]");
 }
 
 
@@ -149,14 +149,10 @@ class ExpInitializer : Initializer
 		return new ExpInitializer(loc, exp.syntaxCopy());
 	}
 	
-	
-	
-	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
 		exp.toCBuffer(buf, hgs);
 	}
-
 
     override ExpInitializer isExpInitializer() { return this; }
 }
@@ -211,22 +207,22 @@ class StructInitializer : Initializer
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
     {
        //printf("StructInitializer::toCBuffer()\n");
-       buf.put('{');
+       buf.put("{");
        foreach(j, i; field)
        {
           if (j > 0)
-             buf.put(',');
+             buf.put(", ");
           Identifier id = i;
           if (id)
           {
              buf.put(id.toChars());
-             buf.put(':');
+             buf.put(":");
           }
           Initializer iz = value[j];
           if (iz)
              iz.toCBuffer(buf, hgs);
        }
-       buf.put('}');
+       buf.put("}");
     }
 
     override StructInitializer isStructInitializer() { return this; }

@@ -1,47 +1,25 @@
-module dmd.Type;
-// zd notes: remove MODXXX
-// and TOK.TOKxxxx
-// and TYxxxx
-// now includes enum MATCH
-// and OutBuffer;
+module dmd.type;
 
-import dmd.Global;
-import dmd.Parameter;
-import dmd.TemplateParameter;
+import dmd.global;
+import dmd.parameter;
+import dmd.templateParameter;
 import dmd.Module;
-import dmd.VarDeclaration;
+import dmd.varDeclaration;
 import dmd.Scope;
-import dmd.Identifier;
-import dmd.HdrGenState;
-import dmd.Expression;
-import dmd.Dsymbol;
-import dmd.TypeInfoDeclaration;
-import dmd.ScopeDsymbol;
-import dmd.types.TypeBasic;
-//import dmd.Lexer;
-import dmd.types.TypeArray;
-import dmd.types.TypeSArray;
-import dmd.types.TypeDArray;
-import dmd.types.TypeAArray;
-import dmd.types.TypePointer;
-import dmd.types.TypeReference;
-import dmd.types.TypeFunction;
-import dmd.types.TypeDelegate;
-import dmd.types.TypeIdentifier;
-import dmd.types.TypeInstance;
-import dmd.types.TypeTypeof;
-import dmd.types.TypeReturn;
-import dmd.types.TypeStruct;
-import dmd.types.TypeEnum;
-import dmd.types.TypeTypedef;
-import dmd.types.TypeClass;
-import dmd.types.TypeTuple;
-import dmd.types.TypeSlice;
-import dmd.Token;
+import dmd.identifier;
+import dmd.hdrGenState;
+import dmd.expression;
+import dmd.dsymbol;
+import dmd.declaration;
+import dmd.typeInfoDeclaration;
+import dmd.scopeDsymbol;
+import dmd.token;
 
 import std.array;
 import std.stdio;
 import std.string;
+import std.conv;
+import std.format;
 
 /+ REALSIZE = size a real consumes in memory
  + REALPAD = 'padding' added to the CPU real size to bring it up to REALSIZE
@@ -78,7 +56,6 @@ enum
 	TFLAGSimaginary = 0x10,
 	TFLAGScomplex	= 0x20,
 }
-
 
 alias int TRUST;
 enum 
@@ -119,10 +96,11 @@ int MODimplicitConv(MOD modfrom, MOD modto)
 	return 1;
 
     //printf("MODimplicitConv(from = %x, to = %x)\n", modfrom, modto);
-	static uint X(MOD m, MOD n)
+	static pure uint X(MOD m, MOD n)
 	{
 		return (((m) << 4) | (n));
 	}
+    
     switch (X(modfrom, modto))
     {
 	    case X(MODundefined, MODconst):
@@ -265,24 +243,41 @@ T cloneThis(T)(T arc)
     // Also the whole thing might be obviated by .dup :)
 }
 
+/+
+/***********************
+ * Try to get arg as a type.
+ */
+Type getType()
+{
+   Type t = isType();
+   if (!t)
+   {   
+      Expression e = isExpression();
+      if (e)
+         t = e.type;
+   }
+   return t;
+}
++/
+
 // MARK : Need this here?
-Object objectSyntaxCopy(Object o)
+Dobject objectSyntaxCopy(Dobject o)
 {
     if (!o)
         return null;
 
-    Type t = isType(o);
+    Type t = cast(Type)( o.isType() );
     if (t)
         return t.syntaxCopy();
 
-    Expression e = isExpression(o);
+    Expression e = cast(Expression)( o.isExpression() );
     if (e)
         return e.syntaxCopy();
 
     return o;
 }
 
-class Type
+class Type : Dobject
 {
     TY ty;
     MOD mod;	// modifiers MODxxxx
@@ -304,7 +299,6 @@ class Type
     Type wto;		// MODwild ? naked version of this type : wild version
     Type swto;		// MODshared|MODwild ? naked version of this type : shared wild version
 
-
     Type pto;		// merged pointer to this type
     Type rto;		// reference to this type
     Type arrayof;	// array of this type
@@ -313,7 +307,7 @@ class Type
     //type* ctype;	// for back end ... lowercase, kinda strange!?zd
 
     // TMAX is not recognized by dmd for some strange reason,
-    // unless I declare it in another module (dmd.Token)
+    // unless I declare it in another module (dmd.token)
     static ubyte[TMAX] mangleChar;
     static ubyte[TMAX] sizeTy;
     static Type[string]type_stringtable;
@@ -328,7 +322,7 @@ class Type
 		assert(false);
 	}
 
-    bool equals(Object o) 
+    bool equals(Dobject o) 
     {   
        Type t;
 
@@ -346,15 +340,6 @@ class Type
     }
 
     int covariant(Type t) { assert(false,"zd cut"); }
-
-    string toChars()
-    {
-       auto buf = appender!(char[])();
-
-       HdrGenState hgs;
-       toCBuffer(buf, null, hgs);
-       return buf.data.idup;
-    }
 
     static char needThisPrefix() { assert(false,"zd cut"); }
 
@@ -460,6 +445,70 @@ debug {
 		global.tvoidptr = tvoid.pointerTo();
 		global.tstring = tchar.invariantOf().arrayOf();
 	}
+    
+    string toChars()
+    {
+       auto buf = appender!(char[])();
+
+       HdrGenState hgs;
+       toCBuffer(buf, null, hgs);
+       return buf.data.idup;
+    }
+
+    void toCBuffer(ref Appender!(char[]) buf, Identifier ident, ref HdrGenState hgs)
+	{
+		toCBuffer2(buf, hgs, 0/+MODundefined+/);
+		if (ident)
+		{
+			buf.put(' ');
+			buf.put(ident.toChars());
+		}
+	}
+
+    void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		buf.put(toChars());
+	}
+
+    void toCBuffer3(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{
+			if (this.mod & MODshared)
+	        {
+	            MODtoBuffer(buf, this.mod & MODshared);
+	            buf.put('(');
+	        }
+
+	        if (this.mod & ~MODshared)
+	        {
+	            MODtoBuffer(buf, this.mod & ~MODshared);
+	            buf.put('(');
+	            toCBuffer2(buf, hgs, this.mod);
+	            buf.put(')');
+	        }
+	        else
+	            toCBuffer2(buf, hgs, this.mod);
+	        if (this.mod & MODshared)
+	        {
+	            buf.put(')');
+	        }
+		}
+	}
+
+    void modToBuffer(ref Appender!(char[]) buf)
+	{
+        if (mod)
+        {
+    	    buf.put(' ');
+	        MODtoBuffer(buf, mod);
+        }
+	}
 
 	/+++++++++++++++++++++++++++++++
 	 + If this is a shell around another type,
@@ -537,67 +586,11 @@ debug {
 		return t;
 	}
 
-
 	/*************************************
 	 * This version does a merge even if the deco is already computed.
 	 * Necessary for types that have a deco, but are not merged.
 	 */
     Type merge2() { assert(false,"zd cut"); }
-
-    void toCBuffer(ref Appender!(char[]) buf, Identifier ident, ref HdrGenState hgs)
-	{
-		toCBuffer2(buf, hgs, MODundefined);
-		if (ident)
-		{
-			buf.put(' ');
-			buf.put(ident.toChars());
-		}
-	}
-
-    void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
-	{
-		if (mod != this.mod)
-		{
-			toCBuffer3(buf, hgs, mod);
-			return;
-		}
-		buf.put(toChars());
-	}
-
-    void toCBuffer3(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
-	{
-		if (mod != this.mod)
-		{
-			if (this.mod & MODshared)
-	        {
-	            MODtoBuffer(buf, this.mod & MODshared);
-	            buf.put('(');
-	        }
-
-	        if (this.mod & ~MODshared)
-	        {
-	            MODtoBuffer(buf, this.mod & ~MODshared);
-	            buf.put('(');
-	            toCBuffer2(buf, hgs, this.mod);
-	            buf.put(')');
-	        }
-	        else
-	            toCBuffer2(buf, hgs, this.mod);
-	        if (this.mod & MODshared)
-	        {
-	            buf.put(')');
-	        }
-		}
-	}
-
-    void modToBuffer(ref Appender!(char[]) buf)
-	{
-        if (mod)
-        {
-    	    buf.put(' ');
-	        MODtoBuffer(buf, mod);
-        }
-	}
     
     bool isintegral()
 	{
@@ -609,7 +602,7 @@ debug {
 		return false;
 	}
 
-    // Apparently we've mistakenly parsed this Type as an Erpession
+    // Apparently we've mistakenly parsed this Type as an Expression
     Expression toExpression()
 	{
 		return null;
@@ -685,7 +678,6 @@ debug {
     int isSharedWild()	{ return mod == (MODshared | MODwild); }
 
     int isNaked()	{ return mod == 0; }
-
 
 	/********************************
 	 * Convert to 'const'.
@@ -856,8 +848,6 @@ debug {
 		return t;
 	}
 
-
-
     /********************************
      * Convert to 'wild'.
      */
@@ -939,7 +929,6 @@ debug {
             swto = t;
             break;
 
-
          case X(MODconst, MODundefined):
             cto = null;
             goto L2;
@@ -965,7 +954,6 @@ debug {
 L2:
             t.cto = this;
             break;
-
 
          case X(MODimmutable, MODundefined):
             ito = null;
@@ -998,7 +986,6 @@ L3:
             if (t.swto) t.swto.ito = this;
             break;
 
-
          case X(MODshared, MODundefined):
             sto = null;
             goto L4;
@@ -1024,7 +1011,6 @@ L3:
 L4:
             t.sto = this;
             break;
-
 
          case X(MODshared | MODconst, MODundefined):
             scto = null;
@@ -1077,7 +1063,6 @@ L5:
 L6:
             t.wto = this;
             break;
-
 
          case X(MODshared | MODwild, MODundefined):
             swto = null;
@@ -1384,7 +1369,6 @@ L7:
 		return arrayof;
 	}
 
-
     Type makeConst()
 	{
 		//printf("Type.makeConst() %p, %s\n", this, toChars());
@@ -1545,7 +1529,6 @@ L7:
 	 * get that other type.
 	 */
 
-
 	/**************************
 	 * Return type with the top level of it being mutable.
 	 */
@@ -1556,7 +1539,6 @@ L7:
 
 		return mutableOf();
 	}
-
 
     bool isBaseOf(Type t, int* poffset) 
     { 
@@ -1597,9 +1579,7 @@ L7:
 		return MATCHnomatch;
 	}
 
-
     TypeBasic isTypeBasic() { assert(false); }
-
 
     ClassDeclaration isClassHandle()
 	{
@@ -1627,7 +1607,6 @@ L7:
 		id = Identifier.idPool(name);
 		return id;
 	}
-
 
 	/****************************************************
 	 * Get the exact TypeInfo.
@@ -1664,7 +1643,6 @@ L7:
      */
 
     uint wildMatch(Type targ) { assert(false,"zd cut"); }
-
 
 	/***************************************
 	 * Return true if type has pointers that need to
@@ -1704,8 +1682,6 @@ L7:
 	 * Convert from D type to C type.
 	 * This is done so C debug info can be generated.
 	 */
-
-
 
     // For eliminating dynamic_cast
     //TypeBasic isTypeBasic() { assert(false,"zd cut"); }
@@ -1867,5 +1843,1749 @@ L7:
 	{
 		return tsize_t;			// matches hash_t alias
 	}
+   
+   override Type isType() { return this; }
 }
 
+class TypeAArray : TypeArray
+{
+    Type	index;		// key type
+    Loc		loc;
+    Scope	sc;
+    StructDeclaration impl;	// implementation
+
+    this(Type t, Type index)
+	{
+		super(Taarray, t);
+		this.index = index;
+	}
+	
+    override Type syntaxCopy()
+	{
+		Type t = next.syntaxCopy();
+		Type ti = index.syntaxCopy();
+		if (t == next && ti == index)
+			t = this;
+		else
+		{	
+			t = new TypeAArray(t, ti);
+			t.mod = mod;
+		}
+		return t;
+	}
+
+    override ulong size(Loc loc)
+	{
+		return PTRSIZE /* * 2*/;
+	}
+	
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		Type.toDecoBuffer(buf, flag);
+		index.toDecoBuffer(buf);
+		next.toDecoBuffer(buf, (flag & 0x100) ? MODundefined : mod);
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		next.toCBuffer2(buf, hgs, this.mod);
+		buf.put('[');
+		index.toCBuffer2(buf, hgs, MODundefined);
+		buf.put(']');
+	}
+	
+    override bool checkBoolean()
+	{
+		return true;
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoAssociativeArrayDeclaration(this);
+	}
+}
+
+class TypeArray : TypeNext
+{
+    this(TY ty, Type next)
+	{
+		super(ty, next);
+	}
+
+}
+
+class TypeBasic : Type
+{
+    string dstring_;
+    uint flags;
+
+    this(TY ty)
+	{
+		super(ty);
+
+		enum TFLAGSintegral	= 1;
+		enum TFLAGSfloating = 2;
+		enum TFLAGSunsigned = 4;
+		enum TFLAGSreal = 8;
+		enum TFLAGSimaginary = 0x10;
+		enum TFLAGScomplex = 0x20;
+
+		string d;
+
+		uint flags = 0;
+		switch (ty)
+		{
+		case Tvoid:	d = Token.toChars(TOKvoid);
+				break;
+
+		case Tint8:	d = Token.toChars(TOKint8);
+				flags |= TFLAGSintegral;
+				break;
+
+		case Tuns8:	d = Token.toChars(TOKuns8);
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+
+		case Tint16:	d = Token.toChars(TOKint16);
+				flags |= TFLAGSintegral;
+				break;
+
+		case Tuns16:	d = Token.toChars(TOKuns16);
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+
+		case Tint32:	d = Token.toChars(TOKint32);
+				flags |= TFLAGSintegral;
+				break;
+
+		case Tuns32:	d = Token.toChars(TOKuns32);
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+
+		case Tfloat32:	d = Token.toChars(TOKfloat32);
+				flags |= TFLAGSfloating | TFLAGSreal;
+				break;
+
+		case Tint64:	d = Token.toChars(TOKint64);
+				flags |= TFLAGSintegral;
+				break;
+
+		case Tuns64:	d = Token.toChars(TOKuns64);
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+
+		case Tfloat64:	d = Token.toChars(TOKfloat64);
+				flags |= TFLAGSfloating | TFLAGSreal;
+				break;
+
+		case Tfloat80:	d = Token.toChars(TOKfloat80);
+				flags |= TFLAGSfloating | TFLAGSreal;
+				break;
+
+		case Timaginary32: d = Token.toChars(TOKimaginary32);
+				flags |= TFLAGSfloating | TFLAGSimaginary;
+				break;
+
+		case Timaginary64: d = Token.toChars(TOKimaginary64);
+				flags |= TFLAGSfloating | TFLAGSimaginary;
+				break;
+
+		case Timaginary80: d = Token.toChars(TOKimaginary80);
+				flags |= TFLAGSfloating | TFLAGSimaginary;
+				break;
+
+		case Tcomplex32: d = Token.toChars(TOKcomplex32);
+				flags |= TFLAGSfloating | TFLAGScomplex;
+				break;
+
+		case Tcomplex64: d = Token.toChars(TOKcomplex64);
+				flags |= TFLAGSfloating | TFLAGScomplex;
+				break;
+
+		case Tcomplex80: d = Token.toChars(TOKcomplex80);
+				flags |= TFLAGSfloating | TFLAGScomplex;
+				break;
+
+		case Tbool:	d = "bool";
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+
+		case Tascii:	d = Token.toChars(TOKchar);
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+
+		case Twchar:	d = Token.toChars(TOKwchar);
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+
+		case Tdchar:	d = Token.toChars(TOKdchar);
+				flags |= TFLAGSintegral | TFLAGSunsigned;
+				break;
+		default:
+		}
+
+		this.dstring_ = d;
+		this.flags = flags;
+		merge();
+	}
+
+    override Type syntaxCopy()
+	{
+		// No semantic analysis done on basic types, no need to copy
+		return this;
+	}
+	
+    override ulong size(Loc loc)
+	{
+		uint size;
+
+		//printf("TypeBasic.size()\n");
+		switch (ty)
+		{
+			case Tint8:
+			case Tuns8:	size = 1;	break;
+			case Tint16:
+			case Tuns16:	size = 2;	break;
+			case Tint32:
+			case Tuns32:
+			case Tfloat32:
+			case Timaginary32:
+					size = 4;	break;
+			case Tint64:
+			case Tuns64:
+			case Tfloat64:
+			case Timaginary64:
+					size = 8;	break;
+			case Tfloat80:
+			case Timaginary80:
+					size = REALSIZE;	break;
+			case Tcomplex32:
+					size = 8;		break;
+			case Tcomplex64:
+					size = 16;		break;
+			case Tcomplex80:
+					size = REALSIZE * 2;	break;
+
+			case Tvoid:
+				//size = Type.size();	// error message
+				size = 1;
+				break;
+
+			case Tbool:	size = 1;		break;
+			case Tascii:	size = 1;		break;
+			case Twchar:	size = 2;		break;
+			case Tdchar:	size = 4;		break;
+
+			default:
+				assert(0);
+		}
+
+		//printf("TypeBasic.size() = %d\n", size);
+		return size;
+	}
+	
+    override uint alignsize()
+	{
+		uint sz;
+
+		switch (ty)
+		{
+		case Tfloat80:
+		case Timaginary80:
+		case Tcomplex80:
+			sz = REALALIGNSIZE;
+			break;
+
+version (POSIX) { ///TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
+		case Tint64:
+		case Tuns64:
+		case Tfloat64:
+		case Timaginary64:
+		case Tcomplex32:
+		case Tcomplex64:
+			sz = 4;
+			break;
+}
+
+		default:
+			sz = cast(uint)size(Loc(0));	///
+			break;
+		}
+
+		return sz;
+	}
+	
+    override string toChars()
+	{
+		return Type.toChars();
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		//printf("TypeBasic.toCBuffer2(mod = %d, this.mod = %d)\n", mod, this.mod);
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		buf.put(dstring_);
+	}
+	
+    override bool isintegral()
+	{
+		//printf("TypeBasic.isintegral('%s') x%x\n", toChars(), flags);
+		return (flags & TFLAGSintegral) != 0;
+	}
+	
+    bool isbit()
+	{
+		assert(false);
+	}
+	
+    override bool isfloating()
+	{
+		return (flags & TFLAGSfloating) != 0;
+	}
+	
+    override bool isreal()
+	{
+		return (flags & TFLAGSreal) != 0;
+	}
+	
+    override bool isimaginary()
+	{
+		return (flags & TFLAGSimaginary) != 0;
+	}
+	
+    override bool iscomplex()
+	{
+		return (flags & TFLAGScomplex) != 0;
+	}
+
+    override bool isscalar()
+	{
+		return (flags & (TFLAGSintegral | TFLAGSfloating)) != 0;
+	}
+	
+    override bool isunsigned()
+	{
+		return (flags & TFLAGSunsigned) != 0;
+	}
+	
+    override bool builtinTypeInfo()
+	{
+		return mod ? false : true;
+	}
+	
+    // For eliminating dynamic_cast
+    override TypeBasic isTypeBasic()
+	{
+		return this;
+	}
+}
+
+class TypeClass : Type
+{
+    ClassDeclaration sym;
+
+    this(ClassDeclaration sym)
+	{
+		super(Tclass);
+		this.sym = sym;
+	}
+
+    override ulong size(Loc loc)
+	{
+		return PTRSIZE;
+	}
+	
+    override string toChars()
+	{
+		if (mod)
+			return Type.toChars();
+		return sym.toPrettyChars();
+	}
+	
+    override Type syntaxCopy()
+	{
+		assert(false);
+	}
+	
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		string name = sym.mangle();
+		//printf("TypeClass.toDecoBuffer('%s' flag=%d mod=%x) = '%s'\n", toChars(), flag, mod, name);
+		Type.toDecoBuffer(buf, flag);
+		buf.put( name );
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		buf.put(sym.toChars());
+	}
+	
+    override ClassDeclaration isClassHandle()
+	{
+		return sym;
+	}
+	
+    override bool isBaseOf(Type t, int* poffset)
+    {
+        assert (false);
+    }	
+	
+    override bool isauto()
+	{
+		return sym.isauto;
+	}
+	
+    override bool checkBoolean()
+	{
+		return true;
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		if (sym.isInterfaceDeclaration())
+			return new TypeInfoInterfaceDeclaration(this);
+		else
+			return new TypeInfoClassDeclaration(this);
+	}
+	
+    override bool builtinTypeInfo()
+	{
+		/* This is statically put out with the ClassInfo, so
+		 * claim it is built in so it isn't regenerated by each module.
+		 */
+		return mod ? false : true;
+	}
+	
+}
+
+// Dynamic array, no dimension
+class TypeDArray : TypeArray
+{
+    this(Type t)
+	{
+		super(Tarray, t);
+		//printf("TypeDArray(t = %p)\n", t);
+	}
+	
+    override Type syntaxCopy()
+	{
+		Type t = next.syntaxCopy();
+		if (t == next)
+			t = this;
+		else
+		{	
+			t = new TypeDArray(t);
+			t.mod = mod;
+		}
+		return t;
+	}
+	
+    override ulong size(Loc loc)
+	{
+		//printf("TypeDArray.size()\n");
+		return PTRSIZE * 2;
+	}
+	
+    override uint alignsize()
+	{
+		// A DArray consists of two ptr-sized values, so align it on pointer size
+		// boundary
+		return PTRSIZE;
+	}
+	
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		Type.toDecoBuffer(buf, flag);
+		if (next)
+			next.toDecoBuffer(buf, (flag & 0x100) ? 0 : mod);
+	}
+	
+	override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		if (equals(global.tstring))
+			buf.put("string");
+		else
+		{
+			next.toCBuffer2(buf, hgs, this.mod);
+			buf.put("[]");
+		}
+	}
+	
+    override bool checkBoolean()
+	{
+		return true;
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoArrayDeclaration(this);
+	}
+
+}
+
+class TypeDelegate : TypeNext
+{
+    // .next is a TypeFunction
+
+    this(Type t)
+	{
+		super(Tfunction, t);
+		ty = Tdelegate;
+	}
+	
+    override Type syntaxCopy()
+	{
+		Type t = next.syntaxCopy();
+		if (t == next)
+			t = this;
+		else
+		{	
+			t = new TypeDelegate(t);
+			t.mod = mod;
+		}
+		return t;
+	}
+	
+    override ulong size(Loc loc)
+	{
+		return PTRSIZE * 2;
+	}
+    
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		TypeFunction tf = cast(TypeFunction)next;
+
+		tf.next.toCBuffer2(buf, hgs, MODundefined);
+		buf.put(" delegate");
+		Parameter.argsToCBuffer(buf, hgs, tf.parameters, tf.varargs);
+	}
+	
+    override bool checkBoolean()
+	{
+		return true;
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoDelegateDeclaration(this);
+	}
+
+}
+
+class TypeEnum : Type
+{
+    EnumDeclaration sym;
+
+    this(EnumDeclaration sym)
+	{
+		super(Tenum);
+		this.sym = sym;
+	}
+	
+    override Type syntaxCopy()
+	{
+		assert(false);
+	}
+	
+    override ulong size(Loc loc)
+	{
+		if (!sym.memtype)
+		{
+			error(loc, "enum %s is forward referenced", sym.toChars());
+			return 4;
+		}
+		return sym.memtype.size(loc);
+	}
+	
+	override uint alignsize()
+	{
+		if (!sym.memtype)
+		{
+			debug writef("1: ");
+
+			error(Loc(0), "enum %s is forward referenced", sym.toChars());
+			return 4;
+		}
+		return sym.memtype.alignsize();
+	}
+
+	override string toChars()
+	{
+		if (mod)
+			return super.toChars();
+		return sym.toChars();
+	}
+	
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		string name = sym.mangle();
+		Type.toDecoBuffer(buf, flag);
+		buf.put( name);
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		buf.put(sym.toChars());
+	}
+	
+    override bool isintegral()
+	{
+	    return sym.memtype.isintegral();
+	}
+	
+    override bool isfloating()
+	{
+	    return sym.memtype.isfloating();
+	}
+	
+    override bool isreal()
+	{
+		return sym.memtype.isreal();
+	}
+	
+    override bool isimaginary()
+	{
+		return sym.memtype.isimaginary();
+	}
+	
+    override bool iscomplex()
+	{
+		return sym.memtype.iscomplex();
+	}
+	
+    override bool checkBoolean()
+	{
+		return sym.memtype.checkBoolean();
+	}
+	
+    override bool isAssignable()
+	{
+		return sym.memtype.isAssignable();
+	}
+	
+    override bool isscalar()
+	{
+	    return sym.memtype.isscalar();
+	}
+	
+    override bool isunsigned()
+	{
+		return sym.memtype.isunsigned();
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoEnumDeclaration(this);
+	}
+}
+
+class TypeFunction : TypeNext
+{
+    // .next is the return type
+
+    Parameter[] parameters;	// function parameters
+    int varargs;	// 1: T t, ...) style for variable number of arguments
+			// 2: T t ...) style for variable number of arguments
+    bool isnothrow;	// true: nothrow
+    bool ispure;	// true: pure
+    bool isproperty;	// can be called without parentheses
+    bool isref;		// true: returns a reference
+    LINK linkage;	// calling convention
+    TRUST trust;	// level of trust
+    Expression[] fargs;	// function arguments
+
+    int inuse;
+
+    this(Parameter[] parameters, Type treturn, int varargs, LINK linkage)
+	{
+		super(Tfunction, treturn);
+
+		//if (!treturn) *(char*)0=0;
+	//    assert(treturn);
+		assert(0 <= varargs && varargs <= 2);
+		this.parameters = parameters;
+		this.varargs = varargs;
+		this.linkage = linkage;
+        this.trust = TRUSTdefault;
+	}
+	
+    override Type syntaxCopy()
+	{
+		Type treturn = next ? next.syntaxCopy() : null;
+		auto params = Parameter.arraySyntaxCopy(parameters);
+		TypeFunction t = new TypeFunction(params, treturn, varargs, linkage);
+		t.mod = mod;
+		t.isnothrow = isnothrow;
+		t.ispure = ispure;
+		t.isproperty = isproperty;
+		t.isref = isref;
+        t.trust = trust;
+        t.fargs = fargs;
+
+		return t;
+	}
+	
+    //override void toDecoBuffer(ref Appender!(char[]) buf, int flag) { assert(false,"zd cut"); }
+	
+    override void toCBuffer(ref Appender!(char[]) buf, Identifier ident, ref HdrGenState hgs)
+	{
+		//printf("TypeFunction.toCBuffer() this = %p\n", this);
+		string p = null;
+
+		if (inuse)
+		{	
+			inuse = 2;		// flag error to caller
+			return;
+		}
+		inuse++;
+
+		/* Use 'storage class' style for attributes
+		 */
+	    if (mod)
+        {
+	        MODtoBuffer(buf, mod);
+	        buf.put(' ');
+        }
+
+		if (ispure)
+			buf.put("pure ");
+		if (isnothrow)
+			buf.put("nothrow ");
+		if (isproperty)
+			buf.put("@property ");
+		if (isref)
+			buf.put("ref ");
+
+        switch (trust)
+        {
+           case TRUSTtrusted:
+              buf.put("@trusted ");
+              break;
+
+           case TRUSTsafe:
+              buf.put("@safe ");
+              break;
+
+           default:
+        }
+
+		if (next && (!ident || ident.toHChars2() == ident.toChars()))
+			next.toCBuffer2(buf, hgs, MODundefined);
+		if (hgs.ddoc != 1)
+		{
+			switch (linkage)
+			{
+				case LINKd:		p = null;	break;
+				case LINKc:		p = " C";	break;
+				case LINKwindows:	p = " Windows";	break;
+				case LINKpascal:	p = " Pascal";	break;
+				case LINKcpp:	p = " C++";	break;
+				default:
+				assert(0);
+			}
+		}
+
+		if (!hgs.hdrgen && p)
+			buf.put(p);
+		if (ident)
+		{   
+			buf.put(' ');
+			buf.put(ident.toHChars2());
+		}
+		Parameter.argsToCBuffer(buf, hgs, parameters, varargs);
+		inuse--;
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		//printf("TypeFunction::toCBuffer2() this = %p, ref = %d\n", this, isref);
+		string p;
+
+		if (inuse)
+		{
+			inuse = 2;		// flag error to caller
+			return;
+		}
+
+		inuse++;
+		if (next)
+			next.toCBuffer2(buf, hgs, MODundefined);
+
+		if (hgs.ddoc != 1)
+		{
+			switch (linkage)
+			{
+				case LINKd:			p = null;		break;
+				case LINKc:			p = "C ";		break;
+				case LINKwindows:	p = "Windows ";	break;
+				case LINKpascal:	p = "Pascal ";	break;
+				case LINKcpp:		p = "C++ ";		break;
+				default: assert(0);
+			}
+		}
+
+		if (!hgs.hdrgen && p)
+			buf.put(p);
+		buf.put(" function");
+		Parameter.argsToCBuffer(buf, hgs, parameters, varargs);
+
+		/* Use postfix style for attributes
+		 */
+		if (mod != this.mod)
+		{
+			modToBuffer(buf);
+		}
+
+		if (ispure)
+			buf.put(" pure");
+		if (isnothrow)
+			buf.put(" nothrow");
+		if (isproperty)
+			buf.put(" @property");
+		if (isref)
+			buf.put(" ref");
+
+        switch (trust)
+        {
+	    case TRUSTtrusted:
+	        buf.put(" @trusted");
+	        break;
+
+	    case TRUSTsafe:
+	        buf.put(" @safe");
+	        break;
+
+		default:
+        }
+		inuse--;
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoFunctionDeclaration(this);
+	}
+	
+    //override Type reliesOnTident() { assert(false,"zd cut"); }
+}
+
+class TypeIdentifier : TypeQualified
+{
+    Identifier ident;
+
+    this(Loc loc, Identifier ident)
+	{
+		super(Tident, loc);
+		this.ident = ident;
+	}
+	
+    override Type syntaxCopy()
+	{
+		TypeIdentifier t = new TypeIdentifier(loc, ident);
+		t.mod = mod;
+
+		return t;
+	}
+	
+    //char *toChars();
+	
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		Type.toDecoBuffer(buf, flag);
+		string name = ident.toChars();
+		buf.put( to!string(name.length) ~ name);
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		buf.put(this.ident.toChars());
+		toCBuffer2Helper(buf, hgs);
+	}
+	
+    override Type reliesOnTident()
+	{
+		return this;
+	}
+	
+}
+
+/* Similar to TypeIdentifier, but with a TemplateInstance as the root
+ */
+class TypeInstance : TypeQualified
+{
+	TemplateInstance tempinst;
+
+	this(Loc loc, TemplateInstance tempinst)
+	{
+		super(Tinstance, loc);
+		this.tempinst = tempinst;
+	}
+
+	override Type syntaxCopy()
+	{
+		//printf("TypeInstance::syntaxCopy() %s, %d\n", toChars(), idents.length);
+		TypeInstance t;
+
+		t = new TypeInstance(loc, cast(TemplateInstance)tempinst.syntaxCopy(null));
+		t.mod = mod;
+		return t;
+	}
+
+	//char *toChars();
+
+	//void toDecoBuffer(ref Appender!(char[]) *buf, int flag);
+
+	override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{	toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		tempinst.toCBuffer(buf, hgs);
+		toCBuffer2Helper(buf, hgs);
+	}
+}
+
+/** T[new]
+ */
+class TypeNewArray : TypeNext
+{
+	this(Type next)
+	{
+		super(Tnarray, next);
+		//writef("TypeNewArray\n");
+	}
+
+	override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		next.toCBuffer2(buf, hgs, this.mod);
+		buf.put("[new]");
+	}
+}
+
+class TypeNext : Type
+{
+    Type next;
+
+    this(TY ty, Type next)
+	{
+		super(ty);
+		this.next = next;
+	}
+
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		super.toDecoBuffer(buf, flag);
+		assert(next !is this);
+		//printf("this = %p, ty = %d, next = %p, ty = %d\n", this, this.ty, next, next.ty);
+		next.toDecoBuffer(buf, (flag & 0x100) ? 0 : mod);
+	}
+
+    override void checkDeprecated(Loc loc, Scope sc)
+	{
+		Type.checkDeprecated(loc, sc);
+		if (next)	// next can be null if TypeFunction and auto return type
+			next.checkDeprecated(loc, sc);
+	}
+	
+    override Type reliesOnTident()
+	{
+		return next.reliesOnTident();
+	}
+	
+    override int hasWild()
+    {
+        return mod == MODwild || next.hasWild();
+    }
+
+    /***************************************
+     * Return MOD bits matching argument type (targ) to wild parameter type (this).
+     */
+    
+    override Type nextOf()
+	{
+		return next;
+	}
+	
+    override Type makeConst()
+	{
+		//printf("TypeNext::makeConst() %p, %s\n", this, toChars());
+		if (cto)
+		{
+			assert(cto.mod == MODconst);
+			return cto;
+		}
+		
+		TypeNext t = cast(TypeNext)super.makeConst();
+		if (ty != Tfunction && ty != Tdelegate &&
+			(next.deco || next.ty == Tfunction) &&
+			!next.isImmutable() && !next.isConst())
+		{
+			if (next.isShared())
+				t.next = next.sharedConstOf();
+			else
+				t.next = next.constOf();
+		}
+		if (ty == Taarray)
+		{
+			(cast(TypeAArray)t).impl = null;		// lazily recompute it
+		}
+		//writef("TypeNext::makeConst() returns %p, %s\n", t, t.toChars());
+		return t;
+	}
+	
+    override Type makeInvariant()
+	{
+		//printf("TypeNext::makeInvariant() %s\n", toChars());
+		if (ito)
+		{	
+			assert(ito.isImmutable());
+			return ito;
+		}
+		TypeNext t = cast(TypeNext)Type.makeInvariant();
+		if (ty != Tfunction && ty != Tdelegate && (next.deco || next.ty == Tfunction) && !next.isImmutable())
+		{	
+			t.next = next.invariantOf();
+		}
+		if (ty == Taarray)
+		{
+			(cast(TypeAArray)t).impl = null;		// lazily recompute it
+		}
+		return t;
+	}
+	
+    override Type makeShared()
+	{
+		//printf("TypeNext::makeShared() %s\n", toChars());
+		if (sto)
+		{	
+			assert(sto.mod == MODshared);
+			return sto;
+		}    
+		TypeNext t = cast(TypeNext)Type.makeShared();
+		if (ty != Tfunction && ty != Tdelegate &&
+			(next.deco || next.ty == Tfunction) &&
+			!next.isImmutable() && !next.isShared())
+		{
+			if (next.isConst() || next.isWild())
+				t.next = next.sharedConstOf();
+			else
+				t.next = next.sharedOf();
+		}
+		if (ty == Taarray)
+		{
+			(cast(TypeAArray)t).impl = null;		// lazily recompute it
+		}
+		//writef("TypeNext::makeShared() returns %p, %s\n", t, t.toChars());
+		return t;
+	}
+	
+	override Type makeSharedConst()
+	{
+		//printf("TypeNext::makeSharedConst() %s\n", toChars());
+		if (scto)
+		{
+			assert(scto.mod == (MODshared | MODconst));
+			return scto;
+		}
+		TypeNext t = cast(TypeNext) Type.makeSharedConst();
+		if (ty != Tfunction && ty != Tdelegate &&
+		    (next.deco || next.ty == Tfunction) &&
+			!next.isImmutable() && !next.isSharedConst())
+		{
+			t.next = next.sharedConstOf();
+		}
+		if (ty == Taarray)
+		{
+			(cast(TypeAArray)t).impl = null;		// lazily recompute it
+		}
+//		writef("TypeNext::makeSharedConst() returns %p, %s\n", t, t.toChars());
+		return t;
+	}
+	
+    override Type makeWild()
+    {
+        //printf("TypeNext::makeWild() %s\n", toChars());
+        if (wto)
+        {
+            assert(wto.mod == MODwild);
+	        return wto;
+        }    
+        auto t = cast(TypeNext)Type.makeWild();
+        if (ty != Tfunction && ty != Tdelegate &&
+	    (next.deco || next.ty == Tfunction) &&
+            !next.isImmutable() && !next.isConst() && !next.isWild())
+        {
+	        if (next.isShared())
+	            t.next = next.sharedWildOf();
+	        else
+	            t.next = next.wildOf();
+        }
+        if (ty == Taarray)
+        {
+    	    (cast(TypeAArray)t).impl = null;		// lazily recompute it
+        }
+        //printf("TypeNext::makeWild() returns %p, %s\n", t, t->toChars());
+        return t;
+    }
+
+    override Type makeSharedWild()
+    {
+        //printf("TypeNext::makeSharedWild() %s\n", toChars());
+        if (swto)
+        {
+            assert(swto.isSharedWild());
+	        return swto;
+        }    
+        auto t = cast(TypeNext)Type.makeSharedWild();
+        if (ty != Tfunction && ty != Tdelegate &&
+	    (next.deco || next.ty == Tfunction) &&
+            !next.isImmutable() && !next.isSharedConst())
+        {
+	        t.next = next.sharedWildOf();
+        }
+        if (ty == Taarray)
+        {
+	        (cast(TypeAArray)t).impl = null;		// lazily recompute it
+        }
+        //printf("TypeNext::makeSharedWild() returns %p, %s\n", t, t->toChars());
+        return t;
+    }
+
+    override Type makeMutable()
+    {
+        //printf("TypeNext::makeMutable() %p, %s\n", this, toChars());
+        auto t = cast(TypeNext)Type.makeMutable();
+        if (ty != Tfunction && ty != Tdelegate &&
+	    (next.deco || next.ty == Tfunction) &&
+            next.isWild())
+        {
+	        t.next = next.mutableOf();
+        }
+        if (ty == Taarray)
+        {
+	        (cast(TypeAArray)t).impl = null;		// lazily recompute it
+        }
+        //printf("TypeNext::makeMutable() returns %p, %s\n", t, t->toChars());
+        return t;
+    }
+	
+	void transitive()
+	{
+		/* Invoke transitivity of type attributes
+		 */
+		next = next.addMod(mod);
+	}
+}
+
+class TypePointer : TypeNext
+{
+    this(Type t)
+	{
+		super(Tpointer, t);
+	}
+
+    override Type syntaxCopy()
+	{
+		Type t = next.syntaxCopy();
+		if (t == next)
+			t = this;
+		else
+		{	
+			t = new TypePointer(t);
+			t.mod = mod;
+		}
+		return t;
+	}
+	
+    override ulong size(Loc loc)
+	{
+		return PTRSIZE;
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		//printf("TypePointer::toCBuffer2() next = %d\n", next->ty);
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		next.toCBuffer2(buf, hgs, this.mod);
+		if (next.ty != Tfunction)
+			buf.put('*');
+	}
+	
+    override bool isscalar()
+	{
+		return true;
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoPointerDeclaration(this);
+	}
+
+}
+
+class TypeQualified : Type
+{
+    Loc loc;
+    Identifier[] idents;	// array of Identifier's representing ident.ident.ident etc.
+
+    this(TY ty, Loc loc)
+	{
+		super(ty);
+		this.loc = loc;
+		
+	}
+
+    void addIdent(Identifier ident)
+	{
+		assert(ident !is null);
+		idents ~= ident;
+	}
+
+    void toCBuffer2Helper(ref Appender!(char[]) buf, ref HdrGenState hgs)
+	{
+		foreach (i; idents)
+		{
+			Identifier id = i;
+			buf.put('.');
+
+			if (id.dyncast() == DYNCAST_DSYMBOL)
+			{
+				TemplateInstance ti = cast(TemplateInstance)id;
+				ti.toCBuffer(buf, hgs);
+			} else {
+				buf.put(id.toChars());
+			}
+		}
+	}
+}
+
+class TypeReference : TypeNext
+{
+    this(Type t)
+	{
+		super( TY.init, null);
+		assert(false);
+	}
+	
+    override Type syntaxCopy()
+	{
+		assert(false);
+	}
+	
+    override ulong size(Loc loc)
+	{
+		assert(false);
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		assert(false);
+	}
+	
+}
+
+class TypeReturn : TypeQualified
+{
+   this(Loc loc)
+   {
+      super(Treturn, loc);
+   }
+
+   void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+   {
+      if (mod != this.mod)
+      {   
+         toCBuffer3(buf, hgs, mod);
+         return;
+      }
+      buf.put("typeof(return)");
+      toCBuffer2Helper(buf, hgs);
+   }
+}
+
+// Static array, one with a fixed dimension
+class TypeSArray : TypeArray
+{
+    Expression dim;
+
+    this(Type t, Expression dim)
+	{
+		super(Tsarray, t);
+		//printf("TypeSArray(%s)\n", dim.toChars());
+		this.dim = dim;
+	}
+	
+    override Type syntaxCopy()
+	{
+		Type t = next.syntaxCopy();
+		Expression e = dim.syntaxCopy();
+		t = new TypeSArray(t, e);
+		t.mod = mod;
+		return t;
+	}
+
+    override ulong size(Loc loc)
+	{
+		if (!dim)
+			return Type.size(loc);
+
+		long sz = dim.toInteger();
+
+		{	
+			long n, n2;
+			n = next.size();
+			n2 = n * sz;
+			if (n && (n2 / n) != sz)
+				goto Loverflow;
+
+			sz = n2;
+		}
+		return sz;
+
+	Loverflow:
+		error(loc, "index %jd overflow for static array", sz);
+		return 1;
+	}
+	
+    override uint alignsize()
+	{
+		return next.alignsize();
+	}
+
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		Type.toDecoBuffer(buf, flag);
+		if (dim)
+			//buf.printf("%ju", dim.toInteger());	///
+			formattedWrite(buf,"%s", dim.toInteger());
+		if (next)
+			/* Note that static arrays are value types, so
+			 * for a parameter, propagate the 0x100 to the next
+			 * level, since for T[4][3], any const should apply to the T,
+			 * not the [4].
+			 */
+			next.toDecoBuffer(buf,  (flag & 0x100) ? flag : mod);
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		next.toCBuffer2(buf, hgs, this.mod);
+		formattedWrite(buf,"[%s]", dim.toChars());
+	}
+	
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoStaticArrayDeclaration(this);
+	}
+}
+
+class TypeSlice : TypeNext
+{
+    Expression lwr;
+    Expression upr;
+
+    this(Type next, Expression lwr, Expression upr)
+	{
+		super(Tslice, next);
+		//printf("TypeSlice[%s .. %s]\n", lwr.toChars(), upr.toChars());
+		this.lwr = lwr;
+		this.upr = upr;
+	}
+	
+    override Type syntaxCopy()
+	{
+		Type t = new TypeSlice(next.syntaxCopy(), lwr.syntaxCopy(), upr.syntaxCopy());
+		t.mod = mod;
+		return t;
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		assert(false);
+	}
+}
+
+class TypeStruct : Type
+{
+    StructDeclaration sym;
+
+    this(StructDeclaration sym)
+	{
+		super(Tstruct);
+		this.sym = sym;
+	}
+    override ulong size(Loc loc)
+	{
+		return sym.size(loc);
+	}
+
+    override uint alignsize()
+	{
+		uint sz;
+
+		sym.size(Loc(0));		// give error for forward references
+		sz = sym.alignsize;
+		if (sz > sym.structalign)
+			sz = sym.structalign;
+		return sz;
+	}
+
+    override string toChars()
+	{
+		//printf("sym.parent: %s, deco = %s\n", sym.parent.toChars(), deco);
+		if (mod)
+			return Type.toChars();
+		TemplateInstance ti = sym.parent.isTemplateInstance();
+		if (ti && ti.toAlias() == sym)
+		{
+			return ti.toChars();
+		}
+		return sym.toChars();
+	}
+
+    override Type syntaxCopy()
+	{
+		assert(false);
+	}
+
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		string name = sym.mangle();
+		//printf("TypeStruct.toDecoBuffer('%s') = '%s'\n", toChars(), name);
+		Type.toDecoBuffer(buf, flag);
+		formattedWrite(buf,"%s", name);
+	}
+
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		if (mod != this.mod)
+		{
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		TemplateInstance ti = sym.parent.isTemplateInstance();
+		if (ti && ti.toAlias() == sym)
+			buf.put(ti.toChars());
+		else
+			buf.put(sym.toChars());
+	}
+
+    /***************************************
+     * Use when we prefer the default initializer to be a literal,
+     * rather than a global immutable variable.
+     */
+
+    override bool isAssignable()
+	{
+		/* If any of the fields are const or invariant,
+		 * then one cannot assign this struct.
+		 */
+		for (size_t i = 0; i < sym.fields.length; i++)
+		{
+			VarDeclaration v = cast(VarDeclaration)sym.fields[i];
+			if (v.isConst() || v.isImmutable())
+				return false;
+		}
+		return true;
+	}
+
+    override bool checkBoolean()
+	{
+		return false;
+	}
+
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoStructDeclaration(this);
+	}
+
+    override Type toHeadMutable()
+	{
+		assert(false);
+	}
+
+}
+
+class TypeTuple : Type
+{
+	Parameter[] arguments;	// types making up the tuple
+
+	this(Parameter[] arguments)
+	{
+		super(Ttuple);
+		//printf("TypeTuple(this = %p)\n", this);
+		this.arguments = arguments;
+		//printf("TypeTuple() %p, %s\n", this, toChars());
+		debug {
+			if (arguments)
+			{
+				foreach (arg; arguments)
+				{
+					assert(arg && arg.type);
+				}
+			}
+		}
+	}
+
+	/****************
+	 * Form TypeTuple from the types of the expressions.
+	 * Assume exps[] is already tuple expanded.
+	 */
+	this(Expression[] exps)
+	{
+		super(Ttuple);
+		Parameter[] arguments;
+		if (exps)
+		{
+			arguments.reserve(exps.length);
+			for (size_t i = 0; i < exps.length; i++)
+			{   
+            auto e = exps[i];
+            if (e.type.ty == Ttuple)
+               e.error("cannot form tuple of tuples");
+            auto arg = new Parameter(STCundefined, e.type, null, null);
+            arguments[i] = arg;
+			}
+		}
+		this.arguments = arguments;
+        //printf("TypeTuple() %p, %s\n", this, toChars());
+	}
+
+	override Type syntaxCopy()
+	{
+		auto args = Parameter.arraySyntaxCopy(arguments);
+		auto t = new TypeTuple(args);
+		t.mod = mod;
+		return t;
+	}
+
+	override bool equals(Dobject o)
+	{
+		Type t;
+
+		t = cast(Type)o;
+		//printf("TypeTuple::equals(%s, %s)\n", toChars(), t-cast>toChars());
+		if (this == t)
+		{
+			return 1;
+		}
+		if (t.ty == Ttuple)
+		{	auto tt = cast(TypeTuple)t;
+
+			if (arguments.length == tt.arguments.length)
+			{
+				for (size_t i = 0; i < tt.arguments.length; i++)
+				{   auto arg1 = arguments[i];
+					auto arg2 = tt.arguments[i];
+
+					if (!arg1.type.equals(arg2.type))
+						return 0;
+				}
+				return 1;
+			}
+		}
+		return 0;
+	}
+
+	override Type reliesOnTident()
+	{
+		if (arguments)
+		{
+			foreach (arg; arguments)
+			{
+				auto t = arg.type.reliesOnTident();
+				if (t)
+					return t;
+			}
+		}
+		return null;
+	}
+
+	override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		Parameter.argsToCBuffer(buf, hgs, arguments, 0);
+	}
+
+	override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		//printf("TypeTuple::toDecoBuffer() this = %p, %s\n", this, toChars());
+		Type.toDecoBuffer(buf, flag);
+		auto buf2 = appender!(char[])();
+		Parameter.argsToDecoBuffer(buf2, arguments);
+		//buf.printf("%d%.*s", len, len, cast(char *)buf2.extractData());
+		formattedWrite(buf,"%s", buf2.data);
+	}
+
+	override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoTupleDeclaration(this);
+	}
+}
+
+class TypeTypedef : Type
+{
+    TypedefDeclaration sym;
+
+    this(TypedefDeclaration sym)
+	{
+		super(Ttypedef);
+		this.sym = sym;
+	}
+	
+    override Type syntaxCopy()
+	{
+		assert(false);
+	}
+	
+    override ulong size(Loc loc)
+	{
+		return sym.basetype.size(loc);
+	}
+	
+    override uint alignsize()
+	{
+		assert(false);
+	}
+	
+    override string toChars()
+	{
+		assert(false);
+	}
+	
+    override void toDecoBuffer(ref Appender!(char[]) buf, int flag)
+	{
+		Type.toDecoBuffer(buf, flag);
+		string name = sym.mangle();
+		formattedWrite(buf,"%s", name);
+	}
+	
+    override void toCBuffer2(ref Appender!(char[]) buf, ref HdrGenState hgs, MOD mod)
+	{
+		//printf("TypeTypedef.toCBuffer2() '%s'\n", sym.toChars());
+		if (mod != this.mod)
+		{	
+			toCBuffer3(buf, hgs, mod);
+			return;
+		}
+		
+		buf.put(sym.toChars());
+	}
+	
+    bool isbit()
+	{
+		assert(false);
+	}
+	
+    override bool isintegral()
+	{
+		//printf("TypeTypedef::isintegral()\n");
+		//printf("sym = '%s'\n", sym->toChars());
+		//printf("basetype = '%s'\n", sym->basetype->toChars());
+		return sym.basetype.isintegral();
+	}
+	
+    override bool isfloating()
+	{
+		return sym.basetype.isfloating();
+	}
+	
+    override bool isreal()
+	{
+		return sym.basetype.isreal();
+	}
+	
+    override bool isimaginary()
+	{
+		return sym.basetype.isimaginary();
+	}
+	
+    override bool iscomplex()
+	{
+		return sym.basetype.iscomplex();
+	}
+	
+    override bool isscalar()
+	{
+		return sym.basetype.isscalar();
+	}
+	
+    override bool isunsigned()
+	{
+		return sym.basetype.isunsigned();
+	}
+	
+    override bool checkBoolean()
+	{
+		return sym.basetype.checkBoolean();
+	}
+	
+    override bool isAssignable()
+	{
+		return sym.basetype.isAssignable();
+	}
+
+    override TypeInfoDeclaration getTypeInfoDeclaration()
+	{
+		return new TypeInfoTypedefDeclaration(this);
+	}
+}
+
+class TypeTypeof : TypeQualified
+{
+    Expression exp;
+
+    this(Loc loc, Expression exp)
+	{
+		super(Ttypeof, loc);
+		this.exp = exp;
+	}
+	
+}

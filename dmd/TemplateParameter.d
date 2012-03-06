@@ -1,22 +1,22 @@
-module dmd.TemplateParameter;
+module dmd.templateParameter;
 
-import dmd.Global;
-import dmd.Identifier;
-import dmd.Declaration;
-import dmd.VarDeclaration;
-import dmd.Dsymbol;
-import dmd.ScopeDsymbol;
-import dmd.Expression;
+import dmd.global;
+import dmd.identifier;
+import dmd.declaration;
+import dmd.varDeclaration;
+import dmd.dsymbol;
+import dmd.scopeDsymbol;
+import dmd.expression;
 import dmd.Scope;
-import dmd.HdrGenState;
+import dmd.hdrGenState;
 import std.array;
-import dmd.Type;
-import dmd.types.TypeIdentifier;
+import dmd.type;
+//import dmd.types.TypeIdentifier;
 
 
-class Tuple
+class Tuple : Dobject
 {
-	Object[] objects;
+	Dobject[] objects;
 
 	this()
 	{
@@ -28,7 +28,7 @@ class Tuple
 	}
 }
 
-class TemplateParameter
+class TemplateParameter : Dobject
 {
     /* For type-parameter:
      *	template Foo(ident)		// specType is set to NULL
@@ -52,6 +52,11 @@ class TemplateParameter
 		this.loc = loc;
 		this.ident = ident;
 	}
+
+   override TemplateParameter isTemplateParameter()
+   {
+      return this;
+   }
 
     TemplateTypeParameter isTemplateTypeParameter()
 	{
@@ -81,10 +86,10 @@ class TemplateParameter
     abstract TemplateParameter syntaxCopy();
     abstract void declareParameter(Scope sc);
     //abstract void semantic(Scope);
-    abstract void print(Object oarg, Object oded);
+    abstract void print(Dobject oarg, Dobject oded);
     abstract void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs);
-    abstract Object specialization();
-    Object defaultArg(Loc loc, Scope sc)
+    abstract Dobject specialization();
+    Dobject defaultArg(Loc loc, Scope sc)
     {
         assert(false);
     }
@@ -95,14 +100,14 @@ class TemplateParameter
 
     /* Match actual argument against parameter.
      */
-    MATCH matchArg(Scope sc, Object[] tiargs, int i, TemplateParameter[] parameters, Object[] dedtypes, Declaration* psparam, int flags = 0)
+    MATCH matchArg(Scope sc, Dobject[] tiargs, int i, TemplateParameter[] parameters, Dobject[] dedtypes, Declaration* psparam, int flags = 0)
     {
         assert(false);
     }
 
     /* Create dummy argument based on parameter.
      */
-    abstract Object dummyArg();
+    abstract Dobject dummyArg();
 }
 
 class TemplateAliasParameter : TemplateParameter
@@ -112,10 +117,10 @@ class TemplateAliasParameter : TemplateParameter
 	 */
 
 	Type specType;
-	Object specAlias;
-	Object defaultAlias;
+	Dobject specAlias;
+	Dobject defaultAlias;
 
-	this(Loc loc, Identifier ident, Type specType, Object specAlias, Object defaultAlias)
+	this(Loc loc, Identifier ident, Type specType, Dobject specAlias, Dobject defaultAlias)
 	{
 		super(loc, ident);
 
@@ -148,7 +153,7 @@ class TemplateAliasParameter : TemplateParameter
 	}
 
 
-   override void print(Object oarg, Object oded)
+   override void print(Dobject oarg, Dobject oded)
    {
        assert(false);
    }
@@ -166,21 +171,21 @@ class TemplateAliasParameter : TemplateParameter
 		if (specAlias)
 		{
 			buf.put(" : ");
-			ObjectToCBuffer(buf, hgs, specAlias);
+			DobjectToCBuffer(buf, hgs, specAlias);
 		}
 		if (defaultAlias)
 		{
 			buf.put(" = ");
-			ObjectToCBuffer(buf, hgs, defaultAlias);
+			DobjectToCBuffer(buf, hgs, defaultAlias);
 		}
 	}
 
-	override Object specialization()
+	override Dobject specialization()
 	{
 		return specAlias;
 	}
 
-   override Object defaultArg(Loc loc, Scope sc)
+   override Dobject defaultArg(Loc loc, Scope sc)
    {
        assert(false);
    }
@@ -188,7 +193,7 @@ class TemplateAliasParameter : TemplateParameter
    
     /* Match actual argument against parameter.
      */
-    override MATCH matchArg(Scope sc, Object[] tiargs, int i, TemplateParameter[] parameters, Object[] dedtypes, Declaration* psparam, int flags = 0)
+    override MATCH matchArg(Scope sc, Dobject[] tiargs, int i, TemplateParameter[] parameters, Dobject[] dedtypes, Declaration* psparam, int flags = 0)
     {
         assert(false);
     }
@@ -210,7 +215,7 @@ Lnomatch:
 	}
 
 
-	override Object dummyArg()
+	override Dobject dummyArg()
 	{
 		if (!specAlias)
 		{
@@ -281,11 +286,11 @@ class TemplateTupleParameter : TemplateParameter
 			error(loc, "parameter '%s' multiply defined", ident.toChars());
 	}
 	
-	
-    override void print(Object oarg, Object oded)
+    // Not sure when or where this gets called
+    override void print(Dobject oarg, Dobject oded)
 	{
 		writef(" %s... [", ident.toChars());
-		Tuple v = isTuple(oded);
+		Tuple v = cast(Tuple)( oded.isTuple() );
 		assert(v);
 
 		//printf("|%d| ", v.objects.length);
@@ -294,21 +299,21 @@ class TemplateTupleParameter : TemplateParameter
 			if (i)
 				writef(", ");
 
-			Object o = v.objects[i];
+			Dobject o = v.objects[i];
 
-			Dsymbol sa = isDsymbol(o);
+			Dobject sa = o.isDsymbol();
 			if (sa)
 				writef("alias: %s", sa.toChars());
 
-			Type ta = isType(o);
+			Dobject ta = o.isType();
 			if (ta)
 				writef("type: %s", ta.toChars());
 
-			Expression ea = isExpression(o);
+			Dobject ea = o.isExpression();
 			if (ea)
 				writef("exp: %s", ea.toChars());
 
-			assert(!isTuple(o));		// no nested Tuple arguments
+			assert(!o.isTuple());		// no nested Tuple arguments
 		}
 
 		writef("]\n");
@@ -320,12 +325,12 @@ class TemplateTupleParameter : TemplateParameter
 		buf.put("...");
 	}
 	
-    override Object specialization()
+    override Dobject specialization()
 	{
 		return null;
 	}
 	
-    override Object defaultArg(Loc loc, Scope sc)
+    override Dobject defaultArg(Loc loc, Scope sc)
 	{
 		return null;
 	}
@@ -342,7 +347,7 @@ class TemplateTupleParameter : TemplateParameter
 	}
 	
 	
-    override Object dummyArg()
+    override Dobject dummyArg()
 	{
 		return null;
 	}
@@ -384,7 +389,7 @@ class TemplateTypeParameter : TemplateParameter
 	}
 	
 
-    override void print(Object oarg, Object oded)
+    override void print(Dobject oarg, Dobject oded)
 	{
 		assert(false);
 	}
@@ -404,7 +409,7 @@ class TemplateTypeParameter : TemplateParameter
 		}
 	}
 
-    override Object specialization()
+    override Dobject specialization()
 	{
 		return specType;
 	}
@@ -426,7 +431,7 @@ class TemplateTypeParameter : TemplateParameter
 	 *	flags		1: don't do 'toHeadMutable()'
 	 */
 	
-    override Object dummyArg()
+    override Dobject dummyArg()
 	{
 		Type t;
 
@@ -486,7 +491,7 @@ class TemplateValueParameter : TemplateParameter
 	}
 
 
-    override void print(Object oarg, Object oded)
+    override void print(Dobject oarg, Dobject oded)
 	{
 		assert(false);
 	}
@@ -506,7 +511,7 @@ class TemplateValueParameter : TemplateParameter
 		}
 	}
 
-    override Object specialization()
+    override Dobject specialization()
 	{
 		return specValue;
 	}
@@ -534,7 +539,7 @@ class TemplateValueParameter : TemplateParameter
 	}
 
 
-    override Object dummyArg()
+    override Dobject dummyArg()
 	{
 		if (!specValue)
 		{

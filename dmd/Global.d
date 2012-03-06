@@ -1,32 +1,21 @@
-module dmd.Global;
-/+ Types defined in this module:
-    Global, 
-    struct Params,
-    struct Loc,
-    enum LINK, 
-    enum DYNCAST, 
-    enum MATCH,
-+/
+module dmd.global;
 
-// This is nothing like the original 
-// I just got too much of a headache trying to figure the 
-// original out.
+// EVERYBODY needs these
+public import dmd.utils;
 
-// The goal is to get the parser up and running.
-// Therefore I will add stubs to params I find in the parser
-// Maybe I'll keep them in the same place, maybe not
-
-import dmd.ScopeDsymbol;
-import dmd.Token;
+import dmd.scopeDsymbol;
+import dmd.token;
 import dmd.Scope;
 import dmd.Module;
-import dmd.Expression;
-import dmd.Dsymbol;
-import dmd.Type;
-import dmd.TypeInfoDeclaration;
-import dmd.Identifier;
-import dmd.types.TypeFunction;
-public import dmd.BasicUtils; // EVERYBODY needs these! :-)
+import dmd.expression;
+import dmd.dsymbol;
+import dmd.type;
+import dmd.hdrGenState;
+import dmd.typeInfoDeclaration;
+import dmd.templateParameter;
+import dmd.identifier;
+//import dmd.statement;
+//import dmd.types.TypeFunction;
 
 import std.stdio;
 import std.array;
@@ -35,10 +24,10 @@ import std.c.stdlib : exit;
 
 static this()
 {
-    dmd.Token.initTochars();
-    dmd.Token.initPrecedence();
-    dmd.Identifier.initKeywords();
-    dmd.Identifier.Id.initIdentifiers();
+    dmd.token.initTochars();
+    dmd.token.initPrecedence();
+    dmd.identifier.initKeywords();
+    dmd.identifier.Id.initIdentifiers();
     Type.init();
 }
 // Test one to make sure
@@ -51,8 +40,8 @@ ParserGlobal global;
 struct ParserGlobal
 {
    // It's possible this will cause duplicate global structure errors
-    static LexGlobal lexGlobal;
-    alias lexGlobal this; // 
+    static LexerGlobal lexerGlobal;
+    alias lexerGlobal this; // 
 
     ClassDeclaration object;
     ClassDeclaration classinfo;

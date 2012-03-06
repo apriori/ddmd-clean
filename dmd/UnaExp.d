@@ -1,21 +1,21 @@
-module dmd.UnaExp;
+module dmd.unaExp;
 
-import dmd.Global;
-import dmd.Expression;
-import dmd.Identifier;
-import dmd.FuncDeclaration;
-import dmd.BinExp;
-import dmd.UnaExp;
-import dmd.types.TypeClass;
-import dmd.types.TypeStruct;
-import dmd.Dsymbol;
-import dmd.ScopeDsymbol;
-import dmd.Type;
+import dmd.global;
+import dmd.expression;
+import dmd.identifier;
+import dmd.funcDeclaration;
+import dmd.binExp;
+import dmd.unaExp;
+//import dmd.types.TypeClass;
+//import dmd.types.TypeStruct;
+import dmd.dsymbol;
+import dmd.scopeDsymbol;
+import dmd.type;
 import dmd.Scope;
-import dmd.HdrGenState;
-import dmd.Token;
-import dmd.Declaration;
-import dmd.VarDeclaration;
+import dmd.hdrGenState;
+import dmd.token;
+import dmd.declaration;
+import dmd.varDeclaration;
 
 import std.array;
 
@@ -71,9 +71,9 @@ class ArrayExp : UnaExp
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
 		expToCBuffer(buf, hgs, e1, PREC_primary);
-		buf.put('[');
+		buf.put("[");
 		argsToCBuffer(buf, arguments, hgs);
-		buf.put(']');
+		buf.put("]");
 	}
 
 	override Identifier opId()
@@ -125,9 +125,10 @@ class AssertExp : UnaExp
 		expToCBuffer(buf, hgs, e1, PREC_assign);
 		if (msg)
 		{
-			buf.put(',');
+			buf.put(", ");
 			expToCBuffer(buf, hgs, msg, PREC_assign);
 		}
+		buf.put(")");
 	}
 }
 
@@ -137,7 +138,7 @@ class BoolExp : UnaExp
 	{
 
 		super(loc, TOKtobool, BoolExp.sizeof, e);
-		type = t;
+		//type = t;
 	}
 
 	override int isBit()
@@ -368,7 +369,7 @@ class DotTemplateInstanceExp : UnaExp
 {
 	TemplateInstance ti;
 
-	this(Loc loc, Expression e, Identifier name, Object[] tiargs)
+	this(Loc loc, Expression e, Identifier name, Dobject[] tiargs)
 	{
 		super(loc, TOKdotti, DotTemplateInstanceExp.sizeof, e);
 		//printf("DotTemplateInstanceExp()\n");
@@ -482,7 +483,7 @@ class PtrExp : UnaExp
 	this(Loc loc, Expression e, Type t)
 	{
 		super(loc, TOKstar, PtrExp.sizeof, e);
-		type = t;
+		//type = t;
 	}
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)

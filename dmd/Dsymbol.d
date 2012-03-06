@@ -1,78 +1,24 @@
-module dmd.Dsymbol;
+module dmd.dsymbol;
 
-import dmd.Global;
+import dmd.global;
 import dmd.Scope;
-//import dmd.Lexer;
 import dmd.Module;
-import dmd.ScopeDsymbol;
-import dmd.Identifier;
-import dmd.HdrGenState;
-import dmd.Statement;
-import dmd.Type;
-import dmd.Declaration;
-import dmd.FuncDeclaration;
-import dmd.VarDeclaration;
-import dmd.AttribDeclaration;
-import dmd.Expression;
-import dmd.Condition;
-import dmd.Token;
+import dmd.scopeDsymbol;
+import dmd.identifier;
+import dmd.hdrGenState;
+import dmd.statement;
+import dmd.type;
+import dmd.declaration;
+import dmd.funcDeclaration;
+import dmd.varDeclaration;
+import dmd.attribDeclaration;
+import dmd.expression;
+import dmd.condition;
+import dmd.token;
 
 import std.array, std.format;
 import std.stdio;
-
-Expression isExpression( Object o )
-{
-   if ( o.classinfo is Expression.classinfo ) return cast(Expression) o;
-   TypeInfo_Class c = o.classinfo.base;
-   while ( Object.classinfo !is c )
-   {
-      if ( c is Expression.classinfo ) return cast(Expression) o;
-      c = c.base;
-   }
-   // No good
-   return null;
-}
-
-Type isType( Object o )
-{
-   if ( o.classinfo is Type.classinfo ) return cast(Type) o;
-   TypeInfo_Class c = o.classinfo.base;
-   while ( Object.classinfo !is c )
-   {
-      if ( c is Type.classinfo ) return cast(Type) o;
-      c = c.base;
-   }
-   return null;
-}
-
-Dsymbol isDsymbol( Object o )
-{
-   if ( o.classinfo is Dsymbol.classinfo ) return cast(Dsymbol) o;
-   
-   TypeInfo_Class c = o.classinfo.base;
-   while ( Object.classinfo !is c )
-   {
-      if ( c is Dsymbol.classinfo ) return cast(Dsymbol) o;
-      c = c.base;
-   }
-   // No good, didn't find it
-   return null;
-}
-
-/***********************
- * Try to get arg as a type.
- */
-
-Type getType(Object o)
-{
-    Type t = isType(o);
-    if (!t)
-    {   Expression e = isExpression(o);
-       if (e)
-	    t = e.type;
-    }
-    return t;
-}
+import std.conv;
 
 alias int PROT;
 enum
@@ -150,7 +96,7 @@ enum : ulong
 	STCdisable      = 0x2000000000,	// for functions that are not callable
 }
 
-class Dsymbol
+class Dsymbol : Dobject
 {
     Identifier ident;
     //Identifier c_ident;
@@ -172,10 +118,27 @@ class Dsymbol
 		this.ident = ident;
 	}
 
-    string toChars()
+   override string toChars()
 	{
 		return ident ? ident.toChars() : "__anonymous";
 	}
+
+   void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      assert (false,"No toCBuffer() for class Dsymbol" );
+   }
+
+   Dobject nextSibling() { return null; }
+   Dobject previousSibling() { return null; }
+
+   Dobject descend( int rank )
+   {
+      // No descent possible for this particular Dsymbol
+      writeln("Dsymbol.descend: descent failed, returning null");
+      return null;
+   }
+   
+   override Dsymbol isDsymbol() { return this; }
 	
    string kind()
 	{
@@ -192,206 +155,200 @@ class Dsymbol
    }
 
 	void toDocBuffer(ref Appender!(char[]) buf)
-	{
-		assert(false);
-	}
+   {
+      assert(false);
+   }
 
    void emitComment(Scope sc)
-	{
-		assert(false);
-	}
-
-    bool oneMember(Dsymbol* ps)
    {
-        assert (false);
+      assert(false);
+   }
+
+   bool oneMember(Dsymbol* ps)
+   {
+      assert (false);
    } 
-    string mangle()
-	{
-		Appender!(char[]) buf;
-		string id;
+   string mangle()
+   {
+      Appender!(char[]) buf;
+      string id;
 
       static if (false) {
-          printf("Dsymbol::mangle() '%s'", toChars());
-          if (parent)
-              printf("  parent = %s %s", parent.kind(), parent.toChars());
-          printf("\n");
+         printf("Dsymbol::mangle() '%s'", toChars());
+         if (parent)
+            printf("  parent = %s %s", parent.kind(), parent.toChars());
+         printf("\n");
       }
-		id = ident ? ident.toChars() : toChars();
-		if (parent)
-		{
-			string p = parent.mangle();
-			if (p[0] == '_' && p[1] == 'D')
-				p =  p[2..$];
-			buf.put(p);
-		}
-		///buf.printf("%zu%s", id.length, id);
+      id = ident ? ident.toChars() : toChars();
+      if (parent)
+      {
+         string p = parent.mangle();
+         if (p[0] == '_' && p[1] == 'D')
+            p =  p[2..$];
+         buf.put(p);
+      }
       import std.format;
-		formattedWrite(buf, "%s%s", id.length, id);
-		id = buf.data.idup;
-		//printf("Dsymbol::mangle() %s = %s\n", toChars(), id);
-		return id;
-	}
-
-    void checkCtorConstInit()
-	{
+      formattedWrite(buf, "%s%s", id.length, id);
+      id = buf.data.idup;
+      //printf("Dsymbol::mangle() %s = %s\n", toChars(), id);
+      return id;
    }
 
-	// copy only syntax trees 
-	Dsymbol syntaxCopy(Dsymbol s) { assert(false); }
-	void importAll(Scope sc) { assert(false); }
-	Dsymbol toAlias() { assert(false); }
-	bool overloadInsert(Dsymbol s) { assert(false); }
-
-    Type getType()			// is this a type?
-	{
-		return null;
-	}
-
-    void setScope(Scope sc)
-	{
-		//printf("Dsymbol.setScope() %p %s\n", this, toChars());
-		if (!sc.nofree)
-			sc.setNoFree();		// may need it even after semantic() finishes
-		scope_ = sc;
-	}
-
-    void addComment(string comment)
-	{
-   }
-
-    void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   void checkCtorConstInit()
    {
-         assert (false,"No toCBuffer() for class Dsymbol" );
    }
 
-    string locToChars() 
-    {
-        assert(false);
-    }
+   // copy only syntax trees 
+   Dsymbol syntaxCopy(Dsymbol s) { assert(false); }
+   void importAll(Scope sc) { assert(false); }
+   Dsymbol toAlias() { assert(false); }
+   bool overloadInsert(Dsymbol s) { assert(false); }
 
-    bool isAnonymous()
-	{
-		return ident ? 0 : 1;
-	}
+   Type getType()			// is this a type?
+   {
+      return null;
+   }
 
-    void error(T...)(Loc loc, string format, T t)
-	{
-		if (!global.gag)
-		{
-			string p = loc.toChars();
-			if (p.length == 0)
-				p = locToChars();
+   void setScope(Scope sc)
+   {
+      //printf("Dsymbol.setScope() %p %s\n", this, toChars());
+      if (!sc.nofree)
+         sc.setNoFree();		// may need it even after semantic() finishes
+      scope_ = sc;
+   }
 
-			if (p.length != 0) {
-				writef("%s: ", p);
-			}
+   void addComment(string comment)
+   {
+   }
 
-			write("Error: ");
-			writef("%s %s ", kind(), toPrettyChars());
+   string locToChars() 
+   {
+      assert(false);
+   }
 
-			writefln(format, t);
-		}
+   bool isAnonymous()
+   {
+      return ident ? 0 : 1;
+   }
 
-		global.errors++;
-		
-		//fatal();
-	}
+   void error(T...)(Loc loc, string format, T t)
+   {
+      if (!global.gag)
+      {
+         string p = loc.toChars();
+         if (p.length == 0)
+            p = locToChars();
 
-    void error(T...)(string format, T t)
-	{
-		//printf("Dsymbol.error()\n");
-		if (!global.gag)
-		{
-			string p = loc.toChars();
+         if (p.length != 0) {
+            writef("%s: ", p);
+         }
 
-			if (p.length != 0) {
-				writef("%s: ", p);
-			}
+         write("Error: ");
+         writef("%s %s ", kind(), toPrettyChars());
 
-			write("Error: ");
-			if (isAnonymous()) {
-				writef("%s ", kind());
-			} else {
-				writef("%s %s ", kind(), toPrettyChars());
-			}
+         writefln(format, t);
+      }
 
-			writefln(format, t);
-		}
-		global.errors++;
+      global.errors++;
 
-		//fatal();
-	}
-	
-    Module getModule()
-    {
-        assert(false);
-    }
+      //fatal();
+   }
 
-	
-    Dsymbol toParent()
-	{
-		return parent ? parent.pastMixin() : null;
-	}
+   void error(T...)(string format, T t)
+   {
+      //printf("Dsymbol.error()\n");
+      if (!global.gag)
+      {
+         string p = loc.toChars();
 
-    Dsymbol pastMixin() 
-    {
-        assert(false);
-    }
+         if (p.length != 0) {
+            writef("%s: ", p);
+         }
 
-    
-	/**********************************
-	 * Use this instead of toParent() when looking for the
-	 * 'this' pointer of the enclosing function/class.
-	 */
-    Dsymbol toParent2()
-	{
-		Dsymbol s = parent;
-		while (s && s.isTemplateInstance())
-			s = s.parent;
-		return s;
-	}
-	
-    TemplateInstance inTemplateInstance()
-	{
-		for (Dsymbol parent = this.parent; parent; parent = parent.parent)
-		{
-			TemplateInstance ti = parent.isTemplateInstance();
-			if (ti)
-				return ti;
-		}
+         write("Error: ");
+         if (isAnonymous()) {
+            writef("%s ", kind());
+         } else {
+            writef("%s %s ", kind(), toPrettyChars());
+         }
 
-		return null;
-	}
+         writefln(format, t);
+      }
+      global.errors++;
 
-	/*************************************
-	 * Do syntax copy of an array of Dsymbol's.
-	 */
-    static Dsymbol[] arraySyntaxCopy(Dsymbol[] a)
-    {
-        assert(false);
-    }
+      //fatal();
+   }
+
+   Module getModule()
+   {
+      assert(false);
+   }
 
 
-    string toPrettyChars()
-    {
-        //printf("Dsymbol.toPrettyChars() '%s'\n", toChars());
-        if (!parent) {
-            return toChars();
-        }
+   Dsymbol toParent()
+   {
+      return parent ? parent.pastMixin() : null;
+   }
 
-        // accumulate them and then print in reverse with dots
-        string[] parStr; 
-        auto len = this.toChars().length;
+   Dsymbol pastMixin() 
+   {
+      assert(false);
+   }
 
-        Dsymbol p = this.parent;
-        while ( p ) 
-        {
-            len += p.toChars().length + 1;
-            parStr ~= p.toChars;
-            p = p.parent;
-        }
 
-        string st;
+   /**********************************
+    * Use this instead of toParent() when looking for the
+    * 'this' pointer of the enclosing function/class.
+    */
+   Dsymbol toParent2()
+   {
+      Dsymbol s = parent;
+      while (s && s.isTemplateInstance())
+         s = s.parent;
+      return s;
+   }
+
+   TemplateInstance inTemplateInstance()
+   {
+      for (Dsymbol parent = this.parent; parent; parent = parent.parent)
+      {
+         TemplateInstance ti = parent.isTemplateInstance();
+         if (ti)
+            return ti;
+      }
+
+      return null;
+   }
+
+   /*************************************
+    * Do syntax copy of an array of Dsymbol's.
+    */
+   static Dsymbol[] arraySyntaxCopy(Dsymbol[] a)
+   {
+      assert(false);
+   }
+
+
+   string toPrettyChars()
+   {
+      //printf("Dsymbol.toPrettyChars() '%s'\n", toChars());
+      if (!parent) {
+         return toChars();
+      }
+
+      // accumulate them and then print in reverse with dots
+      string[] parStr; 
+      auto len = this.toChars().length;
+
+      Dsymbol p = this.parent;
+      while ( p ) 
+      {
+         len += p.toChars().length + 1;
+         parStr ~= p.toChars;
+         p = p.parent;
+      }
+
+      string st;
         st.length = len;
 
         foreach_reverse( s; parStr )
@@ -403,7 +360,6 @@ class Dsymbol
     {
         assert(false);
     }
-
 
     /**************************************
      * Determine if this symbol is only one.
@@ -424,72 +380,62 @@ class Dsymbol
      */
     static bool oneMembers(Dsymbol[] members, Dsymbol ps)
     {
-        //printf("Dsymbol::oneMembers() %d\n", members ? members->length : 0);
-        Dsymbol s = null;
+       //printf("Dsymbol::oneMembers() %d\n", members ? members.length : 0);
+       Dsymbol s = null;
 
-        if (members)
-        {
-            foreach(sx; members)
-            {   
-                //printf("\t[%d] kind %s = %d, s = %p\n", i, sx->kind(), x, *ps);
-                if ( !sx.oneMember(ps) )
-                {
-                    //printf("\tfalse 1\n");
-                    assert(ps is null);
-                    return false;
+       if (members)
+       {
+          foreach(sx; members)
+          {   
+             //printf("\t[%d] kind %s = %d, s = %p\n", i, sx.kind(), x, *ps);
+             if ( !sx.oneMember(ps) )
+             {
+                //printf("\tfalse 1\n");
+                assert(ps is null);
+                return false;
+             }
+             if (ps)
+             {
+                if (s)          // more than one symbol
+                {   
+                   ps = null;
+                   //printf("\tfalse 2\n");
+                   return false;
                 }
-                if (ps)
-                {
-                    if (s)          // more than one symbol
-                    {   
-                        ps = null;
-                        //printf("\tfalse 2\n");
-                        return false;
-                    }
-                    s = ps;
-                }
-            }
-        }
+                s = ps;
+             }
+          }
+       }
 
-        ps = s;        // s is the one symbol, null if none
-        //printf("\ttrue\n");
-        return true;
-    }
-
-    /*************************************
-     * Look for function inlining possibilities.
-     */
-
-
-    void toCBuffer(char[] buf, ref HdrGenState hgs)
-    {
-        assert(false);
+       ps = s;        // s is the one symbol, null if none
+       //printf("\ttrue\n");
+       return true;
     }
 
     uint size(Loc loc)
     {
-        assert(false);
+       assert(false);
     }
 
     AggregateDeclaration isThis()	// is a 'this' required to access the member
     {
-        return null;
+       return null;
     }
 
     ClassDeclaration isClassMember()	// are we a member of a class?
     {
-        Dsymbol parent = toParent();
-        if (parent && parent.isClassDeclaration())
-            return cast(ClassDeclaration)parent;
-        return null;
+       Dsymbol parent = toParent();
+       if (parent && parent.isClassDeclaration())
+          return cast(ClassDeclaration)parent;
+       return null;
     }
 
     AggregateDeclaration isMember()	// is this symbol a member of an AggregateDeclaration?
     {
-        //printf("Dsymbol::isMember() %s\n", toChars());
-        Dsymbol parent = toParent();
-        //printf("parent is %s %s\n", parent.kind(), parent.toChars());
-        return parent ? parent.isAggregateDeclaration() : null;
+       //printf("Dsymbol::isMember() %s\n", toChars());
+       Dsymbol parent = toParent();
+       //printf("parent is %s %s\n", parent.kind(), parent.toChars());
+       return parent ? parent.isAggregateDeclaration() : null;
     }
 
     // Eliminate need for dynamic_cast
@@ -531,42 +477,36 @@ class Dsymbol
     SymbolDeclaration isSymbolDeclaration() { return null; }
     AttribDeclaration isAttribDeclaration() { return null; }
     OverloadSet isOverloadSet() { return null; }
-
 }
 
 class AliasThis : Dsymbol
 {
    // alias Identifier this;
-    Identifier ident;
+   Identifier ident;
 
-    this(Loc loc, Identifier ident)
-	{
-		super(null);		// it's anonymous (no identifier)
-		this.loc = loc;
-		this.ident = ident;
-	}
+   this(Loc loc, Identifier ident)
+   {
+      super(null);		// it's anonymous (no identifier)
+      this.loc = loc;
+      this.ident = ident;
+   }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		/* Since there is no semantic information stored here,
-		 * we don't need to copy it.
-		 */
-		return this;
-	}
-	
-	
-    override string kind()
-	{
-		assert(false);
-	}
-		
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
-	
-    AliasThis isAliasThis() { return this; }
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      /* Since there is no semantic information stored here,
+       * we don't need to copy it.
+       */
+      return this;
+   }
+
+
+   override string kind()
+   {
+      assert(false);
+   }
+
+   AliasThis isAliasThis() { return this; }
 }
 
 /* DebugSymbol's happen for statements like:
@@ -575,54 +515,54 @@ class AliasThis : Dsymbol
  */
 class DebugSymbol : Dsymbol
 {
-    uint level;
+   uint level;
 
-    this(Loc loc, Identifier ident)
-	{
-		super(ident);
-		this.loc = loc;
-	}
+   this(Loc loc, Identifier ident)
+   {
+      super(ident);
+      this.loc = loc;
+   }
 
-    this(Loc loc, uint level)
-	{
-		this.level = level;
-		this.loc = loc;
-	}
+   this(Loc loc, uint level)
+   {
+      this.level = level;
+      this.loc = loc;
+   }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		DebugSymbol ds = new DebugSymbol(loc, ident);
-		ds.level = level;
-		return ds;
-	}
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      DebugSymbol ds = new DebugSymbol(loc, ident);
+      ds.level = level;
+      return ds;
+   }
 
-    override bool addMember(Scope sc, ScopeDsymbol sd, bool memnum)
-    {  
-        assert (false);
-    }
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("debug = ");
-		if (ident)
-			buf.put(ident.toChars());
-		else
-			formattedWrite(buf,"%s", level);
-		buf.put(";");
-		buf.put('\n');
-	}
-	
-    override string kind()
-	{
-		return "debug";
-	}
+   override bool addMember(Scope sc, ScopeDsymbol sd, bool memnum)
+   {  
+      assert (false);
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("debug = ");
+      if (ident)
+         buf.put(ident.toChars());
+      else
+         formattedWrite(buf,"%s", level);
+      buf.put(";");
+      buf.put(hgs.nL);
+   }
+
+   override string kind()
+   {
+      return "debug";
+   }
 }
 
 class EnumMember : Dsymbol
 {
-	Expression value;
-	Type type;
+   Expression value;
+   Type type;
 
 	this(Loc loc, Identifier id, Expression value, Type type)
 	{
@@ -719,72 +659,111 @@ class Import : Dsymbol
 			this.ident = aliasId;
 		// Kludge to change Import identifier to first package
 		else if ( packages )
-			this.ident = packages[0];
-	}
-	
-	override Import isImport() { return this; }
+         this.ident = packages[0];
+   }
 
-	void addAlias(Identifier name, Identifier alias_)
-	{
-		if (isstatic)
-			error("cannot have an import bind list");
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      if (isstatic)
+         buf.put("static ");
+      buf.put("import ");
+      if (aliasId)
+      {
+         buf.put( aliasId.toChars() );
+         buf.put(" = ");
+      }
+      if (packages)
+      {
+         foreach (i; packages)
+         {   
+            buf.put( i.toChars() );
+            buf.put(".");
+         }
+      }
+      buf.put(id.toChars());
+      // TODO This is not in dmd (import.c), but it should be!
+      if (names)
+      {
+         buf.put(" : ");
+         foreach( j, i; names )
+         {
+            if (  aliases[j] )
+            {
+               buf.put( aliases[j].toChars() );
+               buf.put(" = ");
+            }
+            buf.put( i.toChars() );
+            if (j < names.length - 1)
+               buf.put( ", " );
+         }
+      }
+      buf.put(";");
+      buf.put(hgs.nL);
+   }
 
-		if (!aliasId)
-			this.ident = null;	// make it an anonymous import
+   override Import isImport() { return this; }
 
-		names ~= name;
-		aliases ~= alias_;
-	}
+   void addAlias(Identifier name, Identifier alias_)
+   {
+      if (isstatic)
+         error("cannot have an import bind list");
 
-	override string kind()
-	{
-		return isstatic ? "static import" : "import";
-	}
-	
-	override Dsymbol syntaxCopy(Dsymbol s)	// copy only syntax trees
-	{
-		assert(false);
-	}
-	
-	void load(Scope sc)
-	{
-		/+ zd cut TODO include again 
-      //writefln("Import::load('%s')", id.toChars());
+      if (!aliasId)
+         this.ident = null;	// make it an anonymous import
 
-		// See if existing module
-		Dsymbol[string] dst = Package.resolve(packages, null, pkg);
+      names ~= name;
+      aliases ~= alias_;
+   }
 
-		Dsymbol s = dst.get( id.toChars(), null );
-		if (s)
-		{
-			if (s.isModule())
-				mod = cast(Module)s;
-			else
-				error("package and module have the same name");
-		}
-		
-		if (!mod)
-		{
-			// Load module
-			mod = Module.load(loc, packages, id);
-			dst.insert(id, mod);		// id may be different from mod.ident,
-							// if so then insert alias
-			if (!mod.importedFrom)
-				mod.importedFrom = sc ? sc.module_.importedFrom : global.rootModule;
-		}
+   override string kind()
+   {
+      return isstatic ? "static import" : "import";
+   }
 
-		if (!pkg)
-			pkg = mod;
+   override Dsymbol syntaxCopy(Dsymbol s)	// copy only syntax trees
+   {
+      assert(false);
+   }
 
-		//writef("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
+   void load(Scope sc)
+   {
+      /+ zd cut TODO include again 
+         //writefln("Import::load('%s')", id.toChars());
+
+         // See if existing module
+         Dsymbol[string] dst = Package.resolve(packages, null, pkg);
+
+      Dsymbol s = dst.get( id.toChars(), null );
+      if (s)
+      {
+         if (s.isModule())
+            mod = cast(Module)s;
+         else
+            error("package and module have the same name");
+      }
+
+      if (!mod)
+      {
+         // Load module
+         mod = Module.load(loc, packages, id);
+         dst.insert(id, mod);		// id may be different from mod.ident,
+         // if so then insert alias
+         if (!mod.importedFrom)
+            mod.importedFrom = sc ? sc.module_.importedFrom : global.rootModule;
+      }
+
+      if (!pkg)
+         pkg = mod;
+
+      //writef("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
       +/
-	}
-	
-	override void importAll(Scope sc)
-	{
-       /+
-		 if (!mod)
-       {
+   }
+
+   override void importAll(Scope sc)
+   {
+      /+
+         if (!mod)
+         {
            load(sc);
            mod.importAll(null);
 
@@ -851,12 +830,6 @@ class Import : Dsymbol
 		// Allow multiple imports of the same name
 		return s.isImport() !is null;
 	}
-	
-	override void toCBuffer( ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
-
 }
 
 class LabelDsymbol : Dsymbol
@@ -950,7 +923,7 @@ class StaticAssert : Dsymbol
 			msg.toCBuffer(buf, hgs);
 		}
 		buf.put(");");
-		buf.put('\n');
+		buf.put(hgs.nL);
 	}
 }
 
@@ -986,7 +959,7 @@ class VersionSymbol : Dsymbol
 
     override bool addMember(Scope sc, ScopeDsymbol s, bool memnum)
 	{
-		//printf("VersionSymbol::addMember('%s') %s\n", sd->toChars(), toChars());
+		//printf("VersionSymbol::addMember('%s') %s\n", sd.toChars(), toChars());
 
 		// Do not add the member to the symbol table,
 		// just make sure subsequent debug declarations work.
@@ -1022,7 +995,7 @@ class VersionSymbol : Dsymbol
 		else
 			formattedWrite(buf,"%u", level);
 		buf.put(";");
-		buf.put('\n');
+		buf.put(hgs.nL);
 	}
 
     override string kind()

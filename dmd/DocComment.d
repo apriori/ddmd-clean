@@ -1,8 +1,8 @@
-module dmd.DocComment;
+module dmd.docComment;
 // Nothin in here. Prolly a wasta time. 
 
 import dmd.Scope;
-import dmd.Dsymbol;
+import dmd.dsymbol;
 
 import std.array;
 

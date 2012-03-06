@@ -1,4 +1,4 @@
-module dmd.Token;
+module dmd.token;
 /++ This file has a number of basic definitions and initializations +/
 /++ including the following:  +/
 /+
@@ -11,22 +11,13 @@ module dmd.Token;
     PREC[TOKMAX] precedence;
 +/
 
-import dmd.Identifier;
+import dmd.identifier;
 
 import std.conv;
 import std.array; // appender
 import std.encoding; // codePoints, useful for utf strings
 import std.format; //  formattedWrite (appender, "what %s", s);
 
-//static PREC[TOKMAX] precedence;
-
-// I need to get it to recognize TOKMAX as a legit identifier
-// Maybe if I put it down here....
-// static string[TOKMAX] tochars;
-
-/+ This enum will NOT be detected below +/
-/+ Therefore it is reproduced in module dmd.TokenBUG; +/
-/+ where it seems to work +/
 alias int TOK;
 enum 
 {
@@ -539,9 +530,6 @@ bool initPrecedence()
 
 struct Token
 {
-    /+ BUG it doesn't recognize the enum member TOKMAX defined above +/
-    /+ so I put it in the following module instead: +/
-    import dmd.TokenBUG;
     static string[TOKMAX] tochars;
     
     Token* next;
@@ -645,32 +633,26 @@ struct Token
 
             case TOKfloat32v:
                 s = (to!string(  float80value ));
-                //sprintf(buffer.ptr,"%Lgf", float80value);
                 break;
 
             case TOKfloat64v:
                 s = (to!string( float80value  ));
-                //sprintf(buffer.ptr,"%Lg", float80value);
                 break;
 
             case TOKfloat80v:
                 s = (to!string( float80value ));
-                //sprintf(buffer.ptr,"%LgL", float80value);
                 break;
 
             case TOKimaginary32v:
                 s = (to!string( float80value )  ~"i");
-                //sprintf(buffer.ptr,"%Lgfi", float80value);
                 break;
 
             case TOKimaginary64v:
                 s = (to!string(  float80value ) ~"i" );
-                //sprintf(buffer.ptr,"%Lgi", float80value);
                 break;
 
             case TOKimaginary80v:
                 s = (to!string( float80value ) ~ "i");
-                //sprintf(buffer.ptr,"%LgLi", float80value);
                 break;
 
             case TOKstring:

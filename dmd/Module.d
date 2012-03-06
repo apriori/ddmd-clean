@@ -1,17 +1,15 @@
 module dmd.Module;
 
-import dmd.Global;
-import dmd.Identifier;
-import dmd.Type;
-import dmd.Parser;
+import dmd.global;
+import dmd.identifier;
+import dmd.type;
 import dmd.Scope;
-import dmd.ModuleDeclaration;
-import dmd.VarDeclaration;
-import dmd.Dsymbol;
-import dmd.FuncDeclaration;
-import dmd.DocComment;
-import dmd.HdrGenState;
-import dmd.ScopeDsymbol;
+import dmd.varDeclaration;
+import dmd.dsymbol;
+import dmd.funcDeclaration;
+import dmd.docComment;
+import dmd.hdrGenState;
+import dmd.scopeDsymbol;
 
 import std.stdio;
 import std.encoding;
@@ -20,201 +18,238 @@ import std.array;
 import std.exception;
 import std.format;
 
+// a very small class
+class ModuleDeclaration : Dobject
+{
+    Identifier id;
+    Identifier[] packages;		// array of Identifier's representing package
+    bool safe;
+
+    this(Identifier[] packages, Identifier id, bool safe)
+	{
+		this.packages = packages;
+		this.id = id;
+		this.safe = safe;
+	}
+
+   override string toChars()
+	{
+      auto buf = appender!(char[])();
+		if (packages)
+		{
+			foreach (pid; packages)
+			{
+            buf.put(pid.toChars());
+				buf.put('.');
+			}
+		}
+		buf.put(id.toChars());
+		return buf.data.idup;
+	}
+}
+
 // define Package first. Module inherits from Package
 class Package : ScopeDsymbol
 {
    // zd note Package has no members of its own
-    this(Identifier ident)
-	{
-		super(ident);
-	}
-	
-    override string kind()
-	{
-		assert(false);
-	}
+   this(Identifier ident)
+   {
+      super(ident);
+   }
 
-    static Dsymbol[string] resolve( 
-            Identifier[] packages, 
-            Dsymbol pparent, 
-            Package ppkg
-            )
-    {
-    assert(false);
-    /+
-        Dsymbol[string] dst = global.modules;
-        Dsymbol parent = null;
+   override string kind()
+   {
+      assert(false);
+   }
 
-        //printf("Package::resolve()\n");
-        bool sendPpkg = ( ppkg !is null );
+   static Dsymbol[string] resolve( 
+         Identifier[] packages, 
+         Dsymbol pparent, 
+         Package ppkg
+         )
+   {
+      assert(false);
+      /+
+         Dsymbol[string] dst = global.modules;
+      Dsymbol parent = null;
 
-        if (packages)
-        {
-            foreach (pid; packages)
-            {   
-                Package p = dst.get( pid, null );
-                if (!p)
-                {
-                    p = new Package(pid);
-                    dst[pid] = p;
-                    p.parent = parent;
-                }
-                else
-                {
-                    assert(p.isPackage());
-                    //dot net needs modules and packages with same name
-                    version (TARGET_NET) { }
-                    else 
-                    {
-                        if (p.isModule())
-                        {   
-                            p.error("module and package have the same name");
-                            fatal();
-                            break;
-                        }
-                    }
-                }
-                parent = p;
-                dst = p.symtab;
-                // this is weird, couldn't find where it was used anyway
-                // used a bool place holder, I think it makes sense
-                if ( sendPpkg ) 
-                {
-                    sendPpkg = false;
-                    ppkg = p;
-                }
-            }
-            if (pparent)
+      //printf("Package::resolve()\n");
+      bool sendPpkg = ( ppkg !is null );
+
+      if (packages)
+      {
+         foreach (pid; packages)
+         {   
+            Package p = dst.get( pid, null );
+            if (!p)
             {
-                pparent = parent;
+               p = new Package(pid);
+               dst[pid] = p;
+               p.parent = parent;
             }
-        }
-        return dst;
-    +/
-    }
+            else
+            {
+               assert(p.isPackage());
+               //dot net needs modules and packages with same name
+               version (TARGET_NET) { }
+               else 
+               {
+                  if (p.isModule())
+                  {   
+                     p.error("module and package have the same name");
+                     fatal();
+                     break;
+                  }
+               }
+            }
+            parent = p;
+            dst = p.symtab;
+            // this is weird, couldn't find where it was used anyway
+            // used a bool place holder, I think it makes sense
+            if ( sendPpkg ) 
+            {
+               sendPpkg = false;
+               ppkg = p;
+            }
+         }
+         if (pparent)
+         {
+            pparent = parent;
+         }
+      }
+      return dst;
+      +/
+   }
 
-    override Package isPackage() { return this; }
+   override Package isPackage() { return this; }
 
 }
 
 class Module : Package
 {
-    string arg;	// original argument name
-    ModuleDeclaration md; // if !null, the contents of the ModuleDeclaration declaration
-    string srcfilename = "defaultModuleName";
-    //File srcfile;	// input source file
-    //File objfile;	// output .obj file
-    //File hdrfile;	// 'header' file
-    //File symfile;	// output symbol file
-    //File docfile;	// output documentation file
-    uint errors;	// if any errors in file
-    uint numlines;	// number of lines in source file
-    //int isHtml;		// if it is an HTML file
-    //int isDocFile;	// if it is a documentation input file, not D source
-    //int needmoduleinfo; /// TODO: change to bool
+   string arg;	// original argument name
 
-    // 0: don't know, 1: does not, 2: does
-    int selfimports;	// function... selfImports (capital "I")
+   // This is the #!first line, if any
+   // does not include the initial #!
+   string hashBang = null; 
 
-    //int insearch;
-    //Identifier searchCacheIdent;
-    //Dsymbol searchCacheSymbol;	// cached value of search
-    //int searchCacheFlags;	// cached flags
-    
-    //int semanticstarted;	// has semantic() been started?
-    //int semanticRun;		// has semantic() been done?
-    //int root;			// != 0 if this is a 'root' module,
-				// i.e. a module that will be taken all the
-				// way to an object file
-    //Module importedFrom;	// module from command line we're imported from,
-				// i.e. a module that will be taken all the
-				// way to an object file
+   ModuleDeclaration md; // if !null, the contents of the ModuleDeclaration declaration
+   string srcfilename = "defaultModuleName";
+   //File srcfile;	// input source file
+   //File objfile;	// output .obj file
+   //File hdrfile;	// 'header' file
+   //File symfile;	// output symbol file
+   //File docfile;	// output documentation file
+   uint errors;	// if any errors in file
+   uint numlines;	// number of lines in source file
+   //int isHtml;		// if it is an HTML file
+   //int isDocFile;	// if it is a documentation input file, not D source
+   //int needmoduleinfo; /// TODO: change to bool
 
-    Dsymbol[] decldefs;		// top level declarations for this Module
+   // 0: don't know, 1: does not, 2: does
+   int selfimports;	// function... selfImports (capital "I")
 
-    Module[] aimports;		// all imported modules
+   //int insearch;
+   //Identifier searchCacheIdent;
+   //Dsymbol searchCacheSymbol;	// cached value of search
+   //int searchCacheFlags;	// cached flags
 
-    ModuleInfoDeclaration vmoduleinfo;
+   //int semanticstarted;	// has semantic() been started?
+   //int semanticRun;		// has semantic() been done?
+   //int root;			// != 0 if this is a 'root' module,
+   // i.e. a module that will be taken all the
+   // way to an object file
+   //Module importedFrom;	// module from command line we're imported from,
+   // i.e. a module that will be taken all the
+   // way to an object file
 
-    int debuglevel;	// debug level
-    bool[string] debugids;		// debug identifiers
-    bool[string] debugidsNot;		// forward referenced debug identifiers
+   //This is NEVER used in dmd... e
+   //Dsymbol[] decldefs;		// top level declarations for this Module
 
-    int versionlevel;	// version level
-    bool[string] versionids;		// version identifiers
-    bool[string] versionidsNot;	// forward referenced version identifiers
+   Module[] aimports;		// all imported modules
 
-    //Macro macrotable;		// document comment macros
-    //Escape escapetable;	// document comment escapes
-    //bool safe;			// TRUE if module is marked as 'safe'
+   ModuleInfoDeclaration vmoduleinfo;
 
-    this(string filename, Identifier ident, int doDocComment, int doHdrGen)
-    {
-        super(ident);
-        this.srcfilename = filename;
-    }
+   int debuglevel;	// debug level
+   bool[string] debugids;		// debug identifiers
+   bool[string] debugidsNot;		// forward referenced debug identifiers
 
-    // Functionality cut completely. I'm just testing this thing
-    // and I'm a very new programmer. It used a lot of code which
-    // might look nicer in D anyway.
-    // Function is Static!
-    static Module load( Loc loc, string filename, Identifier ident)
-    {
-        Module m;
+   int versionlevel;	// version level
+   bool[string] versionids;		// version identifiers
+   bool[string] versionidsNot;	// forward referenced version identifiers
 
-        
-        m = new Module(filename, ident, 0, 0);
-        m.loc = loc;
+   //Macro macrotable;		// document comment macros
+   //Escape escapetable;	// document comment escapes
+   //bool safe;			// TRUE if module is marked as 'safe'
+
+   this(string filename, Identifier ident, int doDocComment, int doHdrGen)
+   {
+      super(ident);
+      this.srcfilename = filename;
+   }
+
+   // Function is Static!
+   static Module load( Loc loc, string filename, Identifier ident)
+   {
+      Module m;
+
+      m = new Module(filename, ident, 0, 0);
+      m.loc = loc;
+
+      //m.read(loc);
+      //m.srcfilebuffer = readText( m.srcfile );
+
+      m.parse();
+
+      return m;
+   }
+
+   void read(Loc loc) { }
+
+   void parse()	// syntactic parse
+   {
+      // NOTE
+      // Module no longer depends on dmd.parser.
+      // Therefore dmd.Module is COMPLETELY independent of any parsing code
+      
+      // To load a module:
+      version(none)
+      {
+         import dmd.parser;
+         char[] sourceBuffer = "Any old module file that you want to parse".dup;
+         Module m;
+         m = new Module("Whatever", new Identifier("Whatever",TOKidentifier), false/+doDocComment+/, false/+doHdrGen+/);
+         auto pete = new Parser( m, sourceBuffer, false /+doDocComment+/);
+         pete.parseModule();
+         // Now m is parsed and ready to go!
+         // To set pete to a new module:
+         Module mm;
+         pete.setModule ( mm );
+      }
 
 
-        //m.read(loc);
-        //m.srcfilebuffer = readText( m.srcfile );
+      // I've set it up so that all the BOM conversion
+      // will happen in the parser itself, although
+      // as of March 3, 2012 it's not implemented
 
-        m.parse();
+      //char[] srcbuf = readText!(char[])( srcfilename );
 
-        return m;
-    }
-
-    void read(Loc loc) { }
-    
-    void parse()	// syntactic parse
-    {
-        // Unfortunately I felt too much pressure to know everything too
-        // soon. I cut basically everything. 
-        // Source file must be in our current directory.
-        // And it must be char[]
-        // As I said. I cut a lot.
-        // I think phobos would do all this stuff better anyway
-        
-        //printf("Module.parse(srcname = '%s')\n", srcname);
-        char[] srcbuf = readText!(char[])( srcfilename );
-
-        auto p = new Parser(this, srcbuf, 0/+docfile+/ );
-        p.nextToken();
-        members = p.parseModule();
-        md = p.md;
-        numlines = p.loc.linnum;
-
-        // I process NO SEMANTICS AT ALL
-    }
+      //auto p = new Parser(this, srcbuf, 0/+docfile+/ );
+      //p.parseModule(); // parser already has this module in reference
+      
+      //numlines = p.loc.linnum;
+   }
 
    override string toChars()
    {
-       auto codeBuf = appender!(char[]);
+      auto codeBuf = appender!(char[]);
 
-       formattedWrite(codeBuf, "// An entire Module! Wow! %s", srcfilename );
-       codeBuf.put("\n");
+      HdrGenState hgs; // I'll need a new name for HdrGenState!
 
-       HdrGenState hgs; // I'll need a new name for HdrGenState!
+      toCBuffer( codeBuf, hgs);
 
-       toCBuffer( codeBuf, hgs);
-       //string s = assumeUnique(codeBuf.data);
-       foreach(i; 0..31) write( codeBuf.data[i] );
-       writeln();
-       
-   NOTE FUNCTIUON WILL NOT WORK IF YOU MERELY RETURN "QWE" DUHHHHH!!!!
-
-       return "qwE";
+      char[] s = codeBuf.data;
+      return assumeUnique(s);
    }
 
    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
@@ -223,7 +258,7 @@ class Module : Package
       {
          buf.put("module ");
          buf.put(md.toChars());
-         buf.put(";\n");
+         buf.put(";" ~ hgs.nL);
       }
 
       foreach ( i; members)

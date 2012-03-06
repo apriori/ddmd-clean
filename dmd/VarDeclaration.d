@@ -1,32 +1,30 @@
-module dmd.VarDeclaration;
+module dmd.varDeclaration;
 
-import dmd.Global;
-import dmd.Declaration;
-import dmd.UnaExp;
-import dmd.BinExp;
-import dmd.ScopeDsymbol;
-import dmd.AttribDeclaration;
-import dmd.types.TypeSArray;
-import dmd.types.TypeTypedef;
-import dmd.Initializer;
-import dmd.types.TypeStruct;
-import dmd.types.TypeTuple;
-import dmd.Parameter;
-import dmd.Dsymbol;
-import dmd.Expression;
-import dmd.Token;
+import dmd.global;
+import dmd.declaration;
+import dmd.unaExp;
+import dmd.binExp;
+import dmd.scopeDsymbol;
+import dmd.attribDeclaration;
+//import dmd.types.TypeSArray;
+//import dmd.types.TypeTypedef;
+import dmd.initializer;
+//import dmd.types.TypeStruct;
+//import dmd.types.TypeTuple;
+import dmd.parameter;
+import dmd.dsymbol;
+import dmd.expression;
+import dmd.token;
 import dmd.Module;
-import dmd.FuncDeclaration;
-import dmd.Type;
+import dmd.funcDeclaration;
+import dmd.type;
 import dmd.Scope;
-import dmd.Identifier;
-import dmd.HdrGenState;
+import dmd.identifier;
+import dmd.hdrGenState;
 import std.array;
-
 
 import std.stdio : writef;
 import std.string : toStringz;
-
 
 class VarDeclaration : Declaration
 {
@@ -62,11 +60,9 @@ debug
 		assert(type || init);
 		this.type = type;
 		this.init = init;
-version(_DH)
-{
-		this.htype = null;
-		this.hinit = null;
-}
+
+		//this.htype = null;
+		//this.hinit = null;
 		this.loc = loc;
 		
 	}
@@ -92,28 +88,6 @@ version(_DH)
 			sv.storage_class = storage_class;
 		}
 
-	version (_DH) {
-		// Syntax copy for header file
-		if (!htype)      // Don't overwrite original
-		{
-			if (type)    // Make copy for both old and new instances
-			{   htype = type.syntaxCopy();
-				sv.htype = type.syntaxCopy();
-			}
-		}
-		else            // Make copy of original for new instance
-			sv.htype = htype.syntaxCopy();
-		if (!hinit)
-		{	
-			if (init)
-			{   
-				hinit = init.syntaxCopy();
-				sv.hinit = init.syntaxCopy();
-			}
-		}
-		else
-			sv.hinit = hinit.syntaxCopy();
-	}
 		return sv;
 	}
 
@@ -124,8 +98,8 @@ version(_DH)
 	
     void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		StorageClassDeclaration.stcToCBuffer(buf, storage_class);
-
 		/* If changing, be sure and fix CompoundDeclarationStatement.toCBuffer()
 		 * too.
 		 */
@@ -137,16 +111,18 @@ version(_DH)
 		{	
 			buf.put(" = ");
 			ExpInitializer ie = init.isExpInitializer();
-			if (ie && (ie.exp.op == TOKconstruct || ie.exp.op == TOKblit))
-				(cast(AssignExp)ie.exp).e2.toCBuffer(buf, hgs);
-			else
-				init.toCBuffer(buf, hgs);
+			// Something left over from semantic analysis
+         //if (ie && (ie.exp.op == TOKconstruct || ie.exp.op == TOKblit))
+			//	(cast(AssignExp)ie.exp).e2.toCBuffer(buf, hgs);
+			//else
+         //buf.put("\nVarDeclartion: init = "~ init. classinfo.name ~"\n");
+			init.toCBuffer(buf, hgs);
 		}
 		buf.put(';');
-		buf.put('\n');
+		buf.put(hgs.nL);
 	}
 	
-version (_DH) {
+version (none) { //TODO if ye compile, get rid 'er ye!
     Type htype;
     Initializer hinit;
 }

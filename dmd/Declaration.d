@@ -1,19 +1,19 @@
-module dmd.Declaration;
+module dmd.declaration;
 // defined in this module: enum STC, enum StorageClass, struct MATCH
 
-import dmd.Global;
-import dmd.Dsymbol;
-import dmd.ScopeDsymbol;
-import dmd.Type;
-import dmd.Token;
-import dmd.types.TypeTuple;
-import dmd.types.TypeTypedef;
-import dmd.Identifier;
+import dmd.global;
+import dmd.dsymbol;
+import dmd.scopeDsymbol;
+import dmd.type;
+import dmd.token;
+//import dmd.types.TypeTuple;
+//import dmd.types.TypeTypedef;
+import dmd.identifier;
 import dmd.Scope;
-import dmd.FuncDeclaration;
-import dmd.VarDeclaration;
-import dmd.HdrGenState;
-import dmd.Initializer;
+import dmd.funcDeclaration;
+import dmd.varDeclaration;
+import dmd.hdrGenState;
+import dmd.initializer;
 
 import std.array;
 import std.conv;
@@ -31,7 +31,7 @@ struct Match
 class Declaration : Dsymbol
 {
     Type type;
-    Type originalType;		// before semantic analysis
+    //Type originalType;		// before semantic analysis
     StorageClass storage_class = STCundefined;
     PROT protection = PROTundefined;
     LINK linkage = LINKdefault;
@@ -199,46 +199,21 @@ class AliasDeclaration : Declaration
 	{
 		super(id);
 
-		//printf("AliasDeclaration(id = '%s', s = %p)\n", id->toChars(), s);
 		assert(s !is this);	/// huh?
 		this.loc = loc;
 		this.type = null;
 		this.aliassym = s;
-		version (_DH) {
-			this.htype = null;
-			this.haliassym = null;
-		}
 		assert(s);
 	}
 
 	override Dsymbol syntaxCopy(Dsymbol s)
 	{
-		//printf("AliasDeclaration::syntaxCopy()\n");
 		assert(!s);
 		AliasDeclaration sa;
 		if (type)
 			sa = new AliasDeclaration(loc, ident, type.syntaxCopy());
 		else
 			sa = new AliasDeclaration(loc, ident, aliassym.syntaxCopy(null));
-version (_DH) {
-		// Syntax copy for header file
-		if (!htype)	    // Don't overwrite original
-		{	if (type)	// Make copy for both old and new instances
-			{   htype = type.syntaxCopy();
-				sa.htype = type.syntaxCopy();
-			}
-		}
-		else			// Make copy of original for new instance
-			sa.htype = htype.syntaxCopy();
-		if (!haliassym)
-		{	if (aliassym)
-			{   haliassym = aliassym.syntaxCopy(s);
-				sa.haliassym = aliassym.syntaxCopy(s);
-			}
-		}
-		else
-			sa.haliassym = haliassym.syntaxCopy(s);
-} // version (_DH)
 		return sa;
 	}
 
@@ -276,9 +251,7 @@ version (_DH) {
 
 	override Dsymbol toAlias()
 	{
-		//printf("AliasDeclaration::toAlias('%s', this = %p, aliassym = %p, kind = '%s')\n", toChars(), this, aliassym, aliassym ? aliassym->kind() : "");
 		assert(this !is aliassym);
-		//static int count; if (++count == 10) *(char*)0=0;
 		if (inSemantic)
 		{
 			error("recursive alias declaration");
@@ -291,22 +264,8 @@ version (_DH) {
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("alias ");
-///	static if (false) { // && _DH
-///		if (hgs.hdrgen)
-///		{
-///			if (haliassym)
-///			{
-///				haliassym.toCBuffer(buf, hgs);
-///				buf.put(' ');
-///				buf.put(ident.toChars());
-///			}
-///			else
-///				htype.toCBuffer(buf, ident, hgs);
-///		}
-///		else
-///	}
-		{
 		if (aliassym)
 		{
 			aliassym.toCBuffer(buf, hgs);
@@ -315,9 +274,8 @@ version (_DH) {
 		}
 		else
 			type.toCBuffer(buf, ident, hgs);
-		}
 		buf.put(';');
-		buf.put('\n');
+      buf.put(hgs.nL);
 	}
 
 	version (_DH) {
@@ -360,12 +318,12 @@ class SymbolDeclaration : Declaration
 
 class TupleDeclaration : Declaration
 {
-	Object[] objects;
+	Dobject[] objects;
 	int isexp;			// 1: expression tuple
 
 	TypeTuple tupletype;	// !=NULL if this is a type tuple
 
-	this(Loc loc, Identifier ident, Object[] objects)
+	this(Loc loc, Identifier ident, Dobject[] objects)
 	{
 		super(ident);
 		this.type = null;

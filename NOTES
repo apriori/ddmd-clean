@@ -1,3 +1,27 @@
+3.5.2012
+     Another MAJOR overhaul. The program is leaner and meaner now.
+
+     All Expressions, Statements, and Dsymbols now inheret from class Dobject.
+   This will allow nicer IDE capabilities I believe.
+   All the Dobjects are separate from the parser and lexer.
+   build.sh builds those objects.
+   buildParser.sh builds the parser and lexer as a separate file
+
+     I did some work on the code generating functions such that they will
+   actually print decent looking code. I'm designing a code generation
+   facility but I decided to separate it from the objects, hopefully making 
+   it just as modular as the lexer and the parser.
+
+     The file names are lowercase again, and they are all in one small 
+   directory.
+      
+     I actually feel pretty good about this commit. Have a look at
+   "main.d". Then try this from your shell:
+
+   ddmd-clean$ ./build.sh
+   
+   Pretty cool, huh?
+
 Next commit: 2.16.2012  :: Getting the parser to run now
     I restructured almost the whole thing. The compile times are WAY down!
 

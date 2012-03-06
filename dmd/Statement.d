@@ -1,24 +1,25 @@
-module dmd.Statement;
+module dmd.statement;
 
-import dmd.Global;
-import dmd.Initializer;
-import dmd.BinExp;
+import dmd.global;
+import dmd.initializer;
+import dmd.binExp;
 import dmd.Catch;
 import dmd.Scope;
-import dmd.Parameter;
-import dmd.VarDeclaration;
-import dmd.Declaration;
-import dmd.FuncDeclaration;
-import dmd.AttribDeclaration;
-import dmd.Dsymbol;
-import dmd.Condition;
-import dmd.Token;
-import dmd.Identifier;
-import dmd.HdrGenState;
-import dmd.Expression;
+import dmd.parameter;
+import dmd.varDeclaration;
+import dmd.declaration;
+import dmd.funcDeclaration;
+import dmd.attribDeclaration;
+import dmd.dsymbol;
+import dmd.condition;
+import dmd.token;
+import dmd.identifier;
+import dmd.hdrGenState;
+import dmd.expression;
 
 import std.stdio, std.format;
 import std.array;
+import std.conv;
 
 
 //! startup code used in *Statement.interpret() functions
@@ -48,33 +49,35 @@ enum
 }
 
 
-class Statement
+class Statement : Dobject
 {
-    Loc loc;
+   Loc loc;
 
-    this(Loc loc)
-    {
-        this.loc = loc;
-    }
+   this(Loc loc)
+   {
+      this.loc = loc;
+   }
 
-    Statement syntaxCopy()
-    {
-        assert(false);
-    }
+   Statement syntaxCopy()
+   {
+      assert(false);
+   }
 
-    void print()
-    {
-        assert(false);
-    }
+   void print()
+   {
+      assert(false);
+   }
 
-    string toChars()
-    {
-        auto buf = appender!(char[])();
-        HdrGenState hgs;
+   override string toChars()
+   {
+      auto buf = appender!(char[])();
+      HdrGenState hgs;
 
-        toCBuffer(buf, hgs);
-        return buf.data.idup;
-    }
+      toCBuffer(buf, hgs);
+      return buf.data.idup;
+   }
+
+   override Statement isStatement() { return this; }
 
     void error(T...)(string format, T t)
     {
@@ -178,6 +181,7 @@ class AsmStatement : Statement
 
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("asm { ");
 		Token*[] toks = tokens;
       //TODO unittest this
@@ -197,11 +201,12 @@ class AsmStatement : Statement
 			   t.value != TOKdot               &&
 			   t.next.value != TOKdot)
 			{
-				buf.put(' ');
+				buf.put(" ");
 			}
 		}
 		buf.put("; }");
-		buf.put('\n');
+		buf.put(hgs.nL);
+		buf.put(hgs.nL);
 	}
 	
     override AsmStatement isAsmStatement() { return this; }
@@ -227,14 +232,15 @@ class BreakStatement : Statement
 
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("break");
 		if (ident)
 		{   
-			buf.put(' ');
+			buf.put(" ");
 			buf.put(ident.toChars());
 		}
-		buf.put(';');
-		buf.put('\n');
+		buf.put(";");
+		buf.put(hgs.nL);
 	}
 
 }
@@ -261,11 +267,12 @@ class CaseRangeStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("case ");
 		first.toCBuffer(buf, hgs);
 		buf.put(": .. case ");
 		last.toCBuffer(buf, hgs);
-		buf.put('\n');
+		buf.put(hgs.nL);
 		statement.toCBuffer(buf, hgs);
 	}
 }
@@ -303,13 +310,14 @@ class CaseStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
-	    buf.put("case ");
+      buf.put(hgs.indent);
+	   buf.put("case ");
 		exp.toCBuffer(buf, hgs);
-		buf.put(':');
-		buf.put('\n');
+		buf.put(":");
+		buf.put(hgs.pushNewLine);
 		statement.toCBuffer(buf, hgs);
+      hgs.popIndentLevel();
 	}
-
 }
 
 class CompileStatement : Statement
@@ -331,11 +339,12 @@ class CompileStatement : Statement
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("mixin(");
 		exp.toCBuffer(buf, hgs);
 		buf.put(");");
 		if (!hgs.FLinit.init)
-			buf.put('\n');
+	      buf.put(hgs.nL);
 	}
 
 }
@@ -379,7 +388,9 @@ class CompoundStatement : Statement
 		foreach (s; statements)
 		{
 			if (s)
+         {
 				s.toCBuffer(buf, hgs);
+         }
 		}
 	}
 
@@ -452,7 +463,7 @@ class CompoundDeclarationStatement : CompoundStatement
 					 */
 					if (nwritten)
 					{
-						buf.put(',');
+						buf.put(",");
 						buf.put(v.ident.toChars());
 					}
 					else
@@ -479,9 +490,9 @@ class CompoundDeclarationStatement : CompoundStatement
 				nwritten++;
 			}
 		}
-		buf.put(';');
-		if (!hgs.FLinit.init)
-			buf.put('\n');
+		buf.put(";");
+		if (!hgs.FLinit.init) 
+         buf.put(hgs.nL);
 	}
 }
 
@@ -525,28 +536,26 @@ class ConditionalStatement : Statement
 
    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
    {
+      buf.put(hgs.indent);
       condition.toCBuffer(buf, hgs);
-      buf.put('\n');
-      buf.put('{');
-      buf.put('\n');
+      buf.put(hgs.nLIndent);
+      buf.put("{");
+      buf.put(hgs.pushNewLine);
 
       if (ifbody)
          ifbody.toCBuffer(buf, hgs);
-      buf.put('}');
-      buf.put('\n');
+      buf.put(hgs.popIndent);
+      buf.put( join( ["}",hgs.nL] ) );
       if (elsebody)
       {
-         buf.put("else");
-         buf.put('\n');
-         buf.put('{');
-         buf.put('\n');
+         buf.put( join([hgs.indent,"else",hgs.nLIndent,"{"] ) );
+         buf.put(hgs.pushNewLine);
          elsebody.toCBuffer(buf, hgs);
-         buf.put('}');
-         buf.put('\n');
+         buf.put(hgs.popIndent);
+         buf.put("}");
+         buf.put(hgs.nL);
       }
-      buf.put('\n');
    }
-
 }
 
 class ContinueStatement : Statement
@@ -567,14 +576,15 @@ class ContinueStatement : Statement
 
    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
    {
+      buf.put(hgs.indent);
       buf.put("continue");
       if (ident)
       {   
-         buf.put(' ');
+         buf.put(" ");
          buf.put(ident.toChars());
       }
-      buf.put(';');
-      buf.put('\n');
+      buf.put(";");
+      buf.put(hgs.nL);
    }
 
 }
@@ -597,8 +607,10 @@ class DefaultStatement : Statement
 
    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
    {
-      buf.put("default:\n");
+      buf.put(hgs.indent);
+      buf.put("default:" ~ hgs.pushNewLine);
       statement.toCBuffer(buf, hgs);
+      hgs.popIndentLevel();
    }
 
 }
@@ -633,13 +645,16 @@ class DoStatement : Statement
 
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
-	    buf.put("do");
-		buf.put('\n');
+      buf.put(hgs.indent);
+      buf.put("do");
+		buf.put(hgs.nL);
 		if (body_)
 			body_.toCBuffer(buf, hgs);
+      buf.put(hgs.indent);
 		buf.put("while (");
 		condition.toCBuffer(buf, hgs);
-		buf.put(')');
+		buf.put(");");
+		buf.put(hgs.nL);
 	}
 
 }
@@ -669,11 +684,12 @@ class ExpStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		if (exp)
 			exp.toCBuffer(buf, hgs);
-		buf.put(';');
+		buf.put(";");
 		if (!hgs.FLinit.init)
-			buf.put('\n');
+		   buf.put(hgs.nL);
 	}
 
 }
@@ -771,24 +787,24 @@ class ForStatement : Statement
 			hgs.FLinit.init--;
 		}
 		else
-			buf.put(';');
+			buf.put(";");
 		if (condition)
-		{   buf.put(' ');
+		{   buf.put(" ");
 			condition.toCBuffer(buf, hgs);
 		}
-		buf.put(';');
+		buf.put(";");
 		if (increment)
 		{   
-			buf.put(' ');
+			buf.put(" ");
 			increment.toCBuffer(buf, hgs);
 		}
-		buf.put(')');
-		buf.put('\n');
-		buf.put('{');
-		buf.put('\n');
+		buf.put(")");
+		buf.put(hgs.nL);
+		buf.put("{");
+		buf.put(hgs.nL);
 		body_.toCBuffer(buf, hgs);
-		buf.put('}');
-		buf.put('\n');
+		buf.put("}");
+		buf.put(hgs.nL);
 	}
 	
 }
@@ -836,9 +852,9 @@ class ForeachRangeStatement : Statement
 	
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put(Token.toChars(op));
 		buf.put(" (");
-
 		if (arg.type)
 			arg.type.toCBuffer(buf, arg.ident, hgs);
 		else
@@ -848,14 +864,14 @@ class ForeachRangeStatement : Statement
 		lwr.toCBuffer(buf, hgs);
 		buf.put(" .. ");
 		upr.toCBuffer(buf, hgs);
-		buf.put(')');
-		buf.put('\n');
-		buf.put('{');
-		buf.put('\n');
+		buf.put(")");
+		buf.put(hgs.nL);
+		buf.put("{");
+		buf.put(hgs.nL);
 		if (body_)
 			body_.toCBuffer(buf, hgs);
-		buf.put('}');
-		buf.put('\n');
+		buf.put("}");
+		buf.put(hgs.nL);
 	}
 	
 }
@@ -897,30 +913,33 @@ class ForeachStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
-	    buf.put(Token.toChars(op));
+      buf.put(hgs.indent);
+	   buf.put(Token.toChars(op));
 		buf.put(" (");
-		for (int i = 0; i < arguments.length; i++)
+		foreach (j, i; arguments)
 		{
-			auto a = arguments[i];
-			if (i)
+			if ( j )
 				buf.put(", ");
-			if (a.storageClass & STCref) 
-				buf.put((global.params.Dversion == 1) ? "inout " : "ref ");
-			if (a.type)
-				a.type.toCBuffer(buf, a.ident, hgs);
+			if (i.storageClass & STCref) 
+				buf.put("ref ");
+			if (i.type)
+				i.type.toCBuffer(buf, i.ident, hgs);
 			else
-				buf.put(a.ident.toChars());
+				buf.put(i.ident.toChars());
 		}
 		buf.put("; ");
 		aggr.toCBuffer(buf, hgs);
-		buf.put(')');
-		buf.put('\n');
-		buf.put('{');
-		buf.put('\n');
+		buf.put(")");
+		buf.put(hgs.nLIndent);
+		buf.put("{");
 		if (body_)
-			body_.toCBuffer(buf, hgs);
-		buf.put('}');
-		buf.put('\n');
+      {
+         buf.put(hgs.pushNewLine);
+         body_.toCBuffer(buf, hgs);
+         buf.put(hgs.popIndent);
+		}
+      buf.put("}");
+      buf.put(hgs.nL);
 	}
 
 }
@@ -949,11 +968,11 @@ class GotoCaseStatement : Statement
 		buf.put("goto case");
 		if (exp)
 		{   
-			buf.put(' ');
+			buf.put(" ");
 			exp.toCBuffer(buf, hgs);
 		}
-		buf.put(';');
-		buf.put('\n');
+		buf.put(";");
+		buf.put(hgs.nL);
 	}
 
 }
@@ -976,6 +995,7 @@ class GotoDefaultStatement : Statement
 
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("goto default;\n");
 	}
 
@@ -1001,10 +1021,11 @@ class GotoStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("goto ");
 		buf.put(ident.toChars());
-		buf.put(';');
-		buf.put('\n');
+		buf.put(";");
+		buf.put(hgs.nL);
 	}
 	
     override GotoStatement isGotoStatement() { return this; }
@@ -1045,6 +1066,7 @@ class IfStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+      buf.put(hgs.indent);
 		buf.put("if (");
 		if (arg)
 		{
@@ -1058,139 +1080,193 @@ class IfStatement : Statement
 			buf.put(" = ");
 		}
 		condition.toCBuffer(buf, hgs);
-		buf.put(')');
-		buf.put('\n');
-		ifbody.toCBuffer(buf, hgs);
-		if (elsebody)
-		{   
-			buf.put("else");
-			buf.put('\n');
-			elsebody.toCBuffer(buf, hgs);
-		}
-	}
-	
+		buf.put(")");
+      if ( ifbody.isScopeStatement() )
+      {
+         buf.put(hgs.nL);  
+         ifbody.toCBuffer(buf, hgs);
+      }
+      else 
+      {
+         // indent for one statement only
+         buf.put(hgs.pushNewLine);
+         ifbody.toCBuffer(buf, hgs);
+         hgs.popIndentLevel();
+      }
+      if (elsebody)
+      {   
+         buf.put(hgs.indent);
+         buf.put("else");
+         if (elsebody.isIfStatement() )
+         {
+            buf.put(" ");
+            hgs.suppressIndent();
+         }
+         else buf.put(hgs.nL);  
+         elsebody.toCBuffer(buf, hgs);
+      }
+   }
+
     override IfStatement isIfStatement() { return this; }
-	
+
+}
+
+class ImportStatement : Statement
+{
+   Dsymbol[] imports;          // Array of Import's
+
+   this(Loc loc, ref Dsymbol[] imports)
+   {
+      super(loc);
+      this.imports = imports;
+   }
+
+   override Statement syntaxCopy()
+   {
+      Dsymbol[] m;
+      m.reserve(imports.length);
+      foreach(j, i; imports)
+      {
+         m[j] = i.syntaxCopy(null);
+      }
+      return new ImportStatement(loc, m);
+   }
+
+   override bool isEmpty()
+   {
+      return true;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      foreach(i; imports)
+      {   
+         i.toCBuffer(buf, hgs);
+      }
+   }
 }
 
 class LabelStatement : Statement
 {
-    Identifier ident;
-    Statement statement;
-    TryFinallyStatement tf = null;
-    //block* lblock = null;		// back end
-    int isReturnLabel = 0;
+   Identifier ident;
+   Statement statement;
+   TryFinallyStatement tf = null;
+   //block* lblock = null;		// back end
+   int isReturnLabel = 0;
 
-    this(Loc loc, Identifier ident, Statement statement)
-	{
-		super(loc);
-		this.ident = ident;
-		this.statement = statement;
-	}
+   this(Loc loc, Identifier ident, Statement statement)
+   {
+      super(loc);
+      this.ident = ident;
+      this.statement = statement;
+   }
 
-    override Statement syntaxCopy()
-	{
-		LabelStatement s = new LabelStatement(loc, ident, statement.syntaxCopy());
-		return s;
-	}
+   override Statement syntaxCopy()
+   {
+      LabelStatement s = new LabelStatement(loc, ident, statement.syntaxCopy());
+      return s;
+   }
 
-    override Statement[] flatten(Scope sc)
-	{
-		Statement[] a = null;
+   override Statement[] flatten(Scope sc)
+   {
+      Statement[] a = null;
 
-		if (statement)
-		{
-			a = statement.flatten(sc);
-			if (a)
-			{
-				if (!a.length)
-					a ~= (new ExpStatement(loc, null));
+      if (statement)
+      {
+         a = statement.flatten(sc);
+         if (a)
+         {
+            if (!a.length)
+               a ~= (new ExpStatement(loc, null));
 
-				Statement s = a[0];
+            Statement s = a[0];
 
-				s = new LabelStatement(loc, ident, s);
-				a[0] = s;
-			}
-		}
+            s = new LabelStatement(loc, ident, s);
+            a[0] = s;
+         }
+      }
 
-		return a;
-	}
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put(ident.toChars());
-		buf.put(':');
-		buf.put('\n');
-		if (statement)
-			statement.toCBuffer(buf, hgs);
-	}
-	
+      return a;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      bool badIndent = (hgs.indentLevel <= 0);
+      if (!badIndent) buf.put(hgs.popIndent);
+      buf.put(ident.toChars());
+      buf.put(":");
+      if (!badIndent) buf.put(hgs.pushNewLine);
+      if (statement)
+         statement.toCBuffer(buf, hgs);
+   }
+
 }
 
 class OnScopeStatement : Statement
 {
-    TOK tok;
-    Statement statement;
+   TOK tok;
+   Statement statement;
 
-    this(Loc loc, TOK tok, Statement statement)
-	{
-		super(loc);
+   this(Loc loc, TOK tok, Statement statement)
+   {
+      super(loc);
 
-		this.tok = tok;
-		this.statement = statement;
-	}
+      this.tok = tok;
+      this.statement = statement;
+   }
 
-    override Statement syntaxCopy()
-	{
-		OnScopeStatement s = new OnScopeStatement(loc,
-			tok, statement.syntaxCopy());
-		return s;
-	}
+   override Statement syntaxCopy()
+   {
+      OnScopeStatement s = new OnScopeStatement(loc,
+            tok, statement.syntaxCopy());
+      return s;
+   }
 
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put(Token.toChars(tok));
-		buf.put(' ');
-		statement.toCBuffer(buf, hgs);
-	}
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put(hgs.indent);
+      buf.put(Token.toChars(tok));
+      buf.put(" " ~ hgs.nL);
+      statement.toCBuffer(buf, hgs);
+   }
 
-    override void scopeCode(Scope sc, Statement* sentry, Statement* sexception, Statement* sfinally)
-    {
-        assert(false);
-    }
+   override void scopeCode(Scope sc, Statement* sentry, Statement* sexception, Statement* sfinally)
+   {
+      assert(false);
+   }
 
 }
 
 class PeelStatement : Statement
 {
-	Statement s;
+   Statement s;
 
-	this(Statement s)
-	{
-		assert(false);
-		super(Loc(0));
-	}
+   this(Statement s)
+   {
+      assert(false);
+      super(Loc(0));
+   }
 
 }
 
 class PragmaStatement : Statement
 {
-	Identifier ident;
-	Expression[] args;		// array of Expression's
-	Statement body_;
+   Identifier ident;
+   Expression[] args;		// array of Expression's
+   Statement body_;
 
-	this(Loc loc, Identifier ident, Expression[] args, Statement body_)
-	{
-		super(loc);
-		this.ident = ident;
-		this.args = args;
-		this.body_ = body_;
-	}
-	
-	override Statement syntaxCopy()
-	{
-		Statement b = null;
-		if (body_)
+   this(Loc loc, Identifier ident, Expression[] args, Statement body_)
+   {
+      super(loc);
+      this.ident = ident;
+      this.args = args;
+      this.body_ = body_;
+   }
+
+   override Statement syntaxCopy()
+   {
+      Statement b = null;
+      if (body_)
 		b = body_.syntaxCopy();
 		PragmaStatement s = new PragmaStatement(loc,
 			ident, Expression.arraySyntaxCopy(args), b);
@@ -1200,6 +1276,7 @@ class PragmaStatement : Statement
 	
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+		buf.put(hgs.indent);
 		buf.put("pragma (");
 		buf.put(ident.toChars());
 		if (args && args.length)
@@ -1208,22 +1285,21 @@ class PragmaStatement : Statement
          // This is defined right below
 			argsToCBuffer(buf, args, hgs);
 		}
-		buf.put(')');
+		buf.put(")");
 		if (body_)
 		{
-			buf.put('\n');
-			buf.put('{');
-			buf.put('\n');
-	
+			buf.put(hgs.nL);
+			buf.put("{");
+			buf.put(hgs.pushNewLine);
 			body_.toCBuffer(buf, hgs);
-	
-			buf.put('}');
-			buf.put('\n');
+			buf.put(hgs.popIndent);
+			buf.put("}");
+			buf.put(hgs.nL);
 		}
 		else
 		{
-			buf.put(';');
-			buf.put('\n');
+			buf.put(";");
+			buf.put(hgs.nL);
 		}
 
 	}
@@ -1240,7 +1316,7 @@ class PragmaStatement : Statement
             if (arg)
             {	
                if (i)
-                  buf.put(',');
+                  buf.put(", ");
                expToCBuffer(buf, hgs, arg, PREC_assign);
             }
          }
@@ -1262,9 +1338,9 @@ class PragmaStatement : Statement
             (pr == PREC_rel && precedence[e.op] == pr)
          )
       {
-         buf.put('(');
+         buf.put("(");
          e.toCBuffer(buf, hgs);
-         buf.put(')');
+         buf.put(")");
       }
       else
          e.toCBuffer(buf, hgs);
@@ -1290,11 +1366,12 @@ class ReturnStatement : Statement
 	
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
-		formattedWrite(buf,"return ");
+		buf.put(hgs.indent);
+		buf.put("return ");
 		if (exp)
 			exp.toCBuffer(buf, hgs);
-		buf.put(';');
-		buf.put('\n');
+		buf.put(";");
+		buf.put(hgs.nL);
 	}
 	
     override ReturnStatement isReturnStatement() { return this; }
@@ -1319,14 +1396,15 @@ class ScopeStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
-		buf.put('{');
-		buf.put('\n');
+		buf.put(hgs.indent ~ "{");
+		buf.put(hgs.pushNewLine);
 
 		if (statement)
 			statement.toCBuffer(buf, hgs);
-
-		buf.put('}');
-		buf.put('\n');
+      
+		buf.put(hgs.popIndent);
+		buf.put("}");
+		buf.put(hgs.nL);
 	}
 	
     override ScopeStatement isScopeStatement() { return this; }
@@ -1375,8 +1453,9 @@ class SwitchErrorStatement : Statement
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+		buf.put(hgs.indent);
 		buf.put("SwitchErrorStatement.toCBuffer()");
-		buf.put('\n');
+		buf.put(hgs.nL);
 	}
 
 }
@@ -1418,135 +1497,139 @@ class SwitchStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+		buf.put(hgs.indent);
 		buf.put("switch (");
 		condition.toCBuffer(buf, hgs);
-		buf.put(')');
-		buf.put('\n');
-		if (body_)
-		{
-			if (!body_.isScopeStatement())
-			{   
-				buf.put('{');
-				buf.put('\n');
-				body_.toCBuffer(buf, hgs);
-				buf.put('}');
-				buf.put('\n');
-			}
-			else
-			{
-				body_.toCBuffer(buf, hgs);
-			}
-		}
-	}
-
+      buf.put(")" ~ hgs.nL);
+      
+      if (body_)
+      {
+         if (!body_.isScopeStatement())
+         {   
+            buf.put("{");
+            buf.put(hgs.pushNewLine);
+            body_.toCBuffer(buf, hgs);
+            buf.put(hgs.popIndent);
+            buf.put("}");
+            buf.put(hgs.nLIndent);
+         }
+         else
+         {
+            //hgs.pushIndent();
+            body_.toCBuffer(buf, hgs);
+            //hgs.popIndent();
+         }
+      }
+   }
 }
 
 class SynchronizedStatement : Statement
 {
-    Expression exp;
-    Statement body_;
+   Expression exp;
+   Statement body_;
 
-    this(Loc loc, Expression exp, Statement body_)
-	{
-		super(loc);
-		
-		this.exp = exp;
-		this.body_ = body_;
-		//this.esync = null;
-	}
-	
-    override Statement syntaxCopy()
-	{
-		assert(false);
-	}
-	
-    override bool hasBreak()
-	{
-		assert(false);
-	}
-	
-    override bool hasContinue()
-	{
-		assert(false);
-	}
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+   this(Loc loc, Expression exp, Statement body_)
+   {
+      super(loc);
+
+      this.exp = exp;
+      this.body_ = body_;
+      //this.esync = null;
+   }
+
+   override Statement syntaxCopy()
+   {
+      assert(false);
+   }
+
+   override bool hasBreak()
+   {
+      assert(false);
+   }
+
+   override bool hasContinue()
+   {
+      assert(false);
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      assert(false);
+   }
 
 }
 
 class ThrowStatement : Statement
 {
-    Expression exp;
+   Expression exp;
 
-    this(Loc loc, Expression exp)
-	{
-		super(loc);
-		this.exp = exp;
-	}
-	
-    override Statement syntaxCopy()
-	{
-		ThrowStatement s = new ThrowStatement(loc, exp.syntaxCopy());
-		return s;
-	}
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		formattedWrite(buf,"throw ");
-		exp.toCBuffer(buf, hgs);
-		buf.put(';');
-		buf.put('\n');
-	}
+   this(Loc loc, Expression exp)
+   {
+      super(loc);
+      this.exp = exp;
+   }
 
+   override Statement syntaxCopy()
+   {
+      ThrowStatement s = new ThrowStatement(loc, exp.syntaxCopy());
+      return s;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+		buf.put(hgs.indent);
+      buf.put("throw ");
+      exp.toCBuffer(buf, hgs);
+      buf.put(";");
+      buf.put(hgs.nL);
+   }
 }
 
 class TryCatchStatement : Statement
 {
-    Statement body_;
-    Catch[] catches;
+   Statement body_;
+   Catch[] catches;
 
-    this(Loc loc, Statement body_, Catch[] catches)
-	{
-		super(loc);
-		this.body_ = body_;
-		this.catches = catches;
-	}
-	
-    override Statement syntaxCopy()
-	{
-		Catch[] a;
-		a.reserve(catches.length);
-		for (int i = 0; i < a.length; i++)
-		{   
-			Catch c = catches[i];
-			c = c.syntaxCopy();
-			a[i] = c;
-		}
-		TryCatchStatement s = new TryCatchStatement(loc, body_.syntaxCopy(), a);
-		return s;
-	}
-	
-    override bool hasBreak()
-	{
-		assert(false);
-	}
+   this(Loc loc, Statement body_, Catch[] catches)
+   {
+      super(loc);
+      this.body_ = body_;
+      this.catches = catches;
+   }
 
-	/***************************************
-	 * Builds the following:
-	 *	_try
-	 *	block
-	 *	jcatch
-	 *	handler
+   override Statement syntaxCopy()
+   {
+      Catch[] a;
+      a.reserve(catches.length);
+      for (int i = 0; i < a.length; i++)
+      {   
+         Catch c = catches[i];
+         c = c.syntaxCopy();
+         a[i] = c;
+      }
+      TryCatchStatement s = new TryCatchStatement(loc, body_.syntaxCopy(), a);
+      return s;
+   }
+
+   override bool hasBreak()
+   {
+      assert(false);
+   }
+
+   /***************************************
+    * Builds the following:
+    *	_try
+    *	block
+    *	jcatch
+    *	handler
 	 * A try-catch statement.
 	 */
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+		buf.put(hgs.indent);
 		buf.put("try");
-		buf.put('\n');
+		buf.put(hgs.nL);
 		if (body_)
 			body_.toCBuffer(buf, hgs);
 		for (size_t i = 0; i < catches.length; i++)
@@ -1578,12 +1661,12 @@ class TryFinallyStatement : Statement
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
-		formattedWrite(buf,"try\n{\n");
+      buf.put( join( [hgs.indent, "try", hgs.nLIndent, "{", hgs.pushNewLine] ) );
 		body_.toCBuffer(buf, hgs);
-		formattedWrite(buf,"}\nfinally\n{\n");
+		buf.put( join( [hgs.popIndent,"}",hgs.nLIndent] ) );
+      buf.put( join( ["finally", hgs.nLIndent, "{", hgs.pushNewLine] ) );
 		finalbody.toCBuffer(buf, hgs);
-		buf.put('}');
-		buf.put('\n');
+		buf.put( join( [hgs.popIndent, "}", hgs.nL, hgs.nL] ) );
 	}
 	
     override bool hasBreak()
@@ -1679,9 +1762,9 @@ class VolatileStatement : Statement
 		if (statement)
 		{   
 			if (statement.isScopeStatement())
-				buf.put('\n');
+				buf.put(hgs.nL);
 			else
-				buf.put(' ');
+				buf.put(" ");
 			statement.toCBuffer(buf, hgs);
 		}
 	}
@@ -1722,10 +1805,15 @@ class WhileStatement : Statement
 	}
 	
     override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
-	
+    {
+       buf.put(hgs.indent);
+       buf.put("while (");
+       condition.toCBuffer(buf, hgs);
+       buf.put(")");
+       buf.put(hgs.nL);
+       if (body_)
+          body_.toCBuffer(buf, hgs);
+    }
 }
 
 class WithStatement : Statement
@@ -1741,16 +1829,22 @@ class WithStatement : Statement
 		this.body_ = body_;
 		wthis = null;
 	}
-	
-    override Statement syntaxCopy()
-	{
-		WithStatement s = new WithStatement(loc, exp.syntaxCopy(), body_ ? body_.syntaxCopy() : null);
-		return s;
-	}
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		assert(false);
-	}
+
+   override Statement syntaxCopy()
+   {
+      WithStatement s = new WithStatement(loc, exp.syntaxCopy(), body_ ? body_.syntaxCopy() : null);
+      return s;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+		buf.put(hgs.indent);
+      buf.put("with (");
+      exp.toCBuffer(buf, hgs);
+      buf.put(")");
+      buf.put(hgs.nL);
+      if (body_)
+         body_.toCBuffer(buf, hgs);
+   }
 
 }

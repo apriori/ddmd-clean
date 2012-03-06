@@ -1,9 +1,9 @@
-module dmd.TypeInfoDeclaration;
+module dmd.typeInfoDeclaration;
 
-import dmd.Global;
-import dmd.VarDeclaration;
-import dmd.Type;
-import dmd.Dsymbol;
+import dmd.global;
+import dmd.varDeclaration;
+import dmd.type;
+import dmd.dsymbol;
 import dmd.Module;
 import dmd.Scope;
 import std.array;

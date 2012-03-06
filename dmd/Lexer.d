@@ -1,9 +1,8 @@
-module dmd.Lexer;
+module dmd.lexer;
 
-import dmd.BasicUtils;
-import dmd.Token; // Now contains: struct Token, Keyword, static initializers
-//import dmd.Module;
-import dmd.Identifier;
+import dmd.utils;
+import dmd.token; 
+import dmd.identifier;
 
 import std.stdio; // : writeln;
 import std.ascii; // : isAlphaNum, isDigit, ascii.isAlpha; 
@@ -12,15 +11,6 @@ import std.conv;
 import std.encoding;
 import std.utf; // toUTF8... see decodeUTF();
 import std.array; // array.appender actually seems to do what dmd's OutBuffer does
-    
-
-//static this()
-//{
-//    dmd.Token.initTochars();
-//    dmd.Token.initPrecedence();
-//    dmd.Identifier.initKeywords();
-//    dmd.Identifier.Id.initIdentifiers();
-//}
 
 class Lexer
 {
@@ -28,22 +18,22 @@ class Lexer
 
    char[] srcbuf;	// I think the array holds the endoffset too
    char* p;		// current character
-   size_t endBuf;
+   char* endBuf; // got to make sure p never crosses this!
    Token token;
    string modName; // module name
-   int doDocComment;		// collect doc comment information
+   bool doDocComment;		// collect doc comment information
    int anyToken;		// !=0 means seen at least one token
    int commentToken;		// !=0 means comments are TOKcomment's
 
    // static, that means globally stored
    static Token* freelist;
-   // I'm going to define stringtable in dmd.Identifier 
+   // I'm going to define stringtable in dmd.identifier 
    //static Identifier[string] stringtable; 
    static Appender!(char[]) stringbuffer;
     
     // I think the tis method could be replaced with something less restrictive
 
-    this(string mod, char[] srcbuf, uint begoffset, int doDocComment, int commentToken)
+    this(string mod, in char[] srcbuf, uint begoffset, bool doDocComment, int commentToken)
 	{
 		loc = Loc( mod, 1);
 
@@ -59,53 +49,14 @@ class Lexer
 		this.anyToken = 0;
 		this.commentToken = commentToken;
 
-      /* If first line starts with '#!', ignore the line
+      /* I'm scanning for the hashbang now in scanForHashBang
        */
-
-		if (p[0] == '#' && p[1] =='!')
-		{
-			p += 2;
-			while (true)
-			{
-				char c = *p;
-				switch (c)
-				{
-				case '\n':
-					p++;
-					break;
-
-				case '\r':
-					p++;
-					if (*p == '\n')
-					p++;
-					break;
-
-				case 0:
-				case 0x1A:
-					break;
-
-				default:
-					if (c & 0x80)
-					{
-						uint u = decodeUTF(); 
-						if (u == paraSep || u == lineSep)
-							break;
-					}
-					p++;
-					continue;
-				}
-				break;
-			}
-			loc.linnum = 2;
-		}
 	}
 
-   void setBuf( ref char[] srcbuf )
+   void setBuf( in char[] srcbuf )
 	{
-      if ( srcbuf[$-1] != '\0' && srcbuf[$-1] != 0x1A) 
-         this.srcbuf = srcbuf ~ '\0'; // cause writeln errors?
-      else this.srcbuf = srcbuf;
-		p = this.srcbuf.ptr;
+      p = cast(char*) srcbuf.ptr;
+      endBuf = cast(char*) srcbuf.ptr + srcbuf.length;
 	}
       
     // function bool isKeyword() is in Token
@@ -116,26 +67,33 @@ class Lexer
         return ( std.ascii.isAlphaNum(c) || c == '_' );
     }
 
-    void scan( Token* t)
-    {
-        uint lastLine = loc.linnum;
-        uint linnum;
+   void scan( Token* t)
+   {
+      if ( p >= endBuf )
+      {
+         // Whoops, we're past the valid scan zone
+         t.value = TOKeof;
+         return;
+      }
 
-        t.blockComment = null;
-        t.lineComment = null;
-        while (true)
-        {
-            t.pointer = p;
-            //printf("p = %p, *p = '%c'\n",p,*p);
-            switch (*p)
-            {
-                case 0:
-                case 0x1A:
-                    t.value = TOKeof;			// end of file
-                    return;
+      uint lastLine = loc.linnum;
+      uint linnum;
 
-                case ' ':
-                case '\t':
+      t.blockComment = null;
+      t.lineComment = null;
+      while (true)
+      {
+         t.pointer = p;
+         //printf("p = %p, *p = '%c'\n",p,*p);
+         switch (*p)
+         {
+            case 0:
+            case 0x1A:
+               t.value = TOKeof;			// end of file
+               return;
+
+            case ' ':
+            case '\t':
                 case '\v':
                 case '\f':
                     p++;
@@ -221,12 +179,12 @@ class Lexer
                     } while (*p == '\\');
 
                     t.ustring = stringbuffer.data.idup;
-                    
+
                     t.postfix = 0;
                     t.value = TOKstring;
-                    
-                    if (!lexGlobal.params.useDeprecated)
-                        error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", p - pstart, pstart, p - pstart, pstart);
+
+                    if (!lexerGlobal.params.useDeprecated)
+                       error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", p - pstart, pstart, p - pstart, pstart);
                     return;
                 }
                 case 'l':
@@ -247,287 +205,286 @@ class Lexer
 
                 case_ident:
                 {
-                    char c;
-
-                    while (true)
-                    {
-                        c = *++p;
-                        if (isIdChar(c))
+                   char c;
+                   while (true)
+                   {
+                      c = *++p;
+                      if (isIdChar(c))
+                         continue;
+                      else if (c & 0x80)
+                      {
+                         char *s = p;
+                         uint u = decodeUTF();
+                         if (std.uni.isAlpha(u))
                             continue;
-                        else if (c & 0x80)
-                        {
-                            char *s = p;
-                            uint u = decodeUTF();
-                            if (std.uni.isAlpha(u))
-                                continue;
-                            error("char 0x%04x not allowed in identifier", u);
-                            p = s;
-                        }
-                        break;
-                    }
+                         error("char 0x%04x not allowed in identifier", u);
+                         p = s;
+                      }
+                      break;
+                   }
 
-                    auto s = cast(string)(t.pointer[0.. p - t.pointer]);
-                        
-                    Identifier id = dmd.Identifier.stringtable.get( s, null );
-                    if (id is null)
-                    {
-                        id = new Identifier( s, TOKidentifier );
-                        dmd.Identifier.stringtable[s] = id;
-                    }
+                   auto s = cast(string)(t.pointer[0.. p - t.pointer]);
 
-                    t.ident = id;
-                    t.value = id.value;
-                    anyToken = 1;
-                    if (*t.pointer == '_')	// if special identifier token
-                    {
-                        if (id == Id.DATE)
-                        {
-                            t.ustring = lexGlobal.date.idup;
-                            goto Lstr;
-                        }
-                        else if (id == Id.TIME)
-                        {
-                            t.ustring = lexGlobal.time.idup;
-                            goto Lstr;
-                        }
-                        else if (id == Id.VENDOR)
-                        {
-                            t.ustring = "Digital Mars D";
-                            goto Lstr;
-                        }
-                        else if (id == Id.TIMESTAMP)
-                        {
-                            t.ustring = lexGlobal.timestamp.idup;
-                Lstr:
-                            t.value = TOKstring;
-                Llen:
-                            t.postfix = 0;
-                        }
-                        else if (id == Id.VERSIONX)
-                        {
-                            uint major = 0;
-                            uint minor = 0;
+                   Identifier id = dmd.identifier.stringtable.get( s, null );
+                   if (id is null)
+                   {
+                      id = new Identifier( s, TOKidentifier );
+                      dmd.identifier.stringtable[s] = id;
+                   }
 
-                            foreach (char cc; lexGlobal.version_[1..$])
+                   t.ident = id;
+                   t.value = id.value;
+                   anyToken = 1;
+                   if (*t.pointer == '_')	// if special identifier token
+                   {
+                      if (id == Id.DATE)
+                      {
+                         t.ustring = lexerGlobal.date;
+                         goto Lstr;
+                      }
+                      else if (id == Id.TIME)
+                      {
+                         t.ustring = lexerGlobal.time;
+                         goto Lstr;
+                      }
+                      else if (id == Id.VENDOR)
+                      {
+                         t.ustring = "Digital Mars D";
+                         goto Lstr;
+                      }
+                      else if (id == Id.TIMESTAMP)
+                      {
+                         t.ustring = lexerGlobal.timestamp;
+                  Lstr:
+                         t.value = TOKstring;
+                  Llen:
+                         t.postfix = 0;
+                      }
+                      else if (id == Id.VERSIONX)
+                      {
+                         uint major = 0;
+                         uint minor = 0;
+
+                         foreach (char cc; lexerGlobal.version_[1..$])
+                         {
+                            if (std.ascii.isDigit(cc))
+                               minor = minor * 10 + cc - '0';
+                            else if (cc == '.')
                             {
-                                if (std.ascii.isDigit(cc))
-                                    minor = minor * 10 + cc - '0';
-                                else if (cc == '.')
-                                {
-                                    major = minor;
-                                    minor = 0;
-                                }
-                                else
-                                    break;
+                               major = minor;
+                               minor = 0;
                             }
-                            t.value = TOKint64v;
-                            t.uns64value = major * 1000 + minor;
-                        }
+                            else
+                               break;
+                         }
+                         t.value = TOKint64v;
+                         t.uns64value = major * 1000 + minor;
+                      }
 
-                        else if (id == Id.EOFX)
-                        {
-                            t.value = TOKeof;
-                            // Advance scanner to end of file
-                            while (!(*p == 0 || *p == 0x1A))
-                                p++;
-                        }
-                    }
-                    //printf("t.value = %d\n",t.value);
-                    return;
+                      else if (id == Id.EOFX)
+                      {
+                         t.value = TOKeof;
+                         // Advance scanner to end of file
+                         while (!(*p == 0 || *p == 0x1A))
+                            p++;
+                      }
+                   }
+                   //printf("t.value = %d\n",t.value);
+                   return;
                 }
 
                 case '/':
                 p++;
                 switch (*p)
                 {
-                    case '=':
-                        p++;
-                        t.value = TOKdivass;
-                        return;
+                   case '=':
+                      p++;
+                      t.value = TOKdivass;
+                      return;
 
-                    case '*':
-                        p++;
-                        linnum = loc.linnum;
-                        while (true)
-                        {
-                            while (true)
-                            {
-                                char c = *p;
-                                switch (c)
-                                {
-                                    case '/':
-                                        break;
-
-                                    case '\n':
-                                        loc.linnum++;
-                                        p++;
-                                        continue;
-
-                                    case '\r':
-                                        p++;
-                                        if (*p != '\n')
-                                            loc.linnum++;
-                                        continue;
-
-                                    case 0:
-                                    case 0x1A:
-                                        error("unterminated /* */ comment");
-                                        p = srcbuf.ptr + srcbuf.length;
-                                        t.value = TOKeof;
-                                        return;
-
-                                    default:
-                                        if (c & 0x80)
-                                        {   uint u = decodeUTF();
-                                            if (u == paraSep || u == lineSep)
-                                                loc.linnum++;
-                                        }
-                                        p++;
-                                        continue;
-                                }
-                                break;
-                            }
-                            p++;
-                            if (p[-2] == '*' && p - 3 != t.pointer)
-                                break;
-                        }
-                        if (commentToken)
-                        {
-                            t.value = TOKcomment;
-                            return;
-                        }
-                        else if (doDocComment && t.pointer[2] == '*' && p - 4 != t.pointer)
-                        {   // if /** but not /**/
-                            getDocComment(t, lastLine == linnum);
-                        }
-                        continue;
-
-                    case '/':		// do // style comments
-                        linnum = loc.linnum;
-                        while (true)
-                        {   char c = *++p;
+                   case '*':
+                      p++;
+                      linnum = loc.linnum;
+                      while (true)
+                      {
+                         while (true)
+                         {
+                            char c = *p;
                             switch (c)
                             {
-                                case '\n':
-                                    break;
+                               case '/':
+                                  break;
 
-                                case '\r':
-                                    if (p[1] == '\n')
-                                        p++;
-                                    break;
+                               case '\n':
+                                  loc.linnum++;
+                                  p++;
+                                  continue;
 
-                                case 0:
-                                case 0x1A:
-                                    if (commentToken)
-                                    {
-                                        p = srcbuf.ptr + srcbuf.length;
-                                        t.value = TOKcomment;
-                                        return;
-                                    }
-                                    if (doDocComment && t.pointer[2] == '/' || t.pointer[2] == '!') // '///' or '//!'
-                                        getDocComment(t, lastLine == linnum);
-                                    p = srcbuf.ptr + srcbuf.length;
-                                    t.value = TOKeof;
-                                    return;
+                               case '\r':
+                                  p++;
+                                  if (*p != '\n')
+                                     loc.linnum++;
+                                  continue;
 
-                                default:
-                                    if (c & 0x80)
-                                    {   uint u = decodeUTF();
-                                        if (u == paraSep || u == lineSep)
-                                            break;
-                                    }
-                                    continue;
+                               case 0:
+                               case 0x1A:
+                                  error("unterminated /* */ comment");
+                                  p = srcbuf.ptr + srcbuf.length;
+                                  t.value = TOKeof;
+                                  return;
+
+                               default:
+                                  if (c & 0x80)
+                                  {   uint u = decodeUTF();
+                                     if (u == paraSep || u == lineSep)
+                                        loc.linnum++;
+                                  }
+                                  p++;
+                                  continue;
                             }
                             break;
-                        }
+                         }
+                         p++;
+                         if (p[-2] == '*' && p - 3 != t.pointer)
+                            break;
+                      }
+                      if (commentToken)
+                      {
+                         t.value = TOKcomment;
+                         return;
+                      }
+                      else if (doDocComment && t.pointer[2] == '*' && p - 4 != t.pointer)
+                      {   // if /** but not /**/
+                         getDocComment(t, lastLine == linnum);
+                      }
+                      continue;
 
-                        if (commentToken)
-                        {
-                            p++;
-                            loc.linnum++;
+                   case '/':		// do // style comments
+                      linnum = loc.linnum;
+                      while (true)
+                      {   char c = *++p;
+                         switch (c)
+                         {
+                            case '\n':
+                               break;
+
+                            case '\r':
+                               if (p[1] == '\n')
+                                  p++;
+                               break;
+
+                            case 0:
+                            case 0x1A:
+                               if (commentToken)
+                               {
+                                  p = srcbuf.ptr + srcbuf.length;
+                                  t.value = TOKcomment;
+                                  return;
+                               }
+                               if (doDocComment && t.pointer[2] == '/' ) // '///'
+                                  getDocComment(t, lastLine == linnum);
+                               p = srcbuf.ptr + srcbuf.length;
+                               t.value = TOKeof;
+                               return;
+
+                            default:
+                               if (c & 0x80)
+                               {   uint u = decodeUTF();
+                                  if (u == paraSep || u == lineSep)
+                                     break;
+                               }
+                               continue;
+                         }
+                         break;
+                      }
+
+                      if (commentToken)
+                      {
+                         p++;
+                         loc.linnum++;
+                         t.value = TOKcomment;
+                         return;
+                      }
+                      if (doDocComment && t.pointer[2] == '/') // '///'
+                         getDocComment(t, lastLine == linnum);
+
+                      p++;
+                      loc.linnum++;
+                      continue;
+
+                   case '+':
+                      {
+                         int nest;
+
+                         linnum = loc.linnum;
+                         p++;
+                         nest = 1;
+                         while (true)
+                         {   char c = *p;
+                            switch (c)
+                            {
+                               case '/':
+                                  p++;
+                                  if (*p == '+')
+                                  {
+                                     p++;
+                                     nest++;
+                                  }
+                                  continue;
+
+                               case '+':
+                                  p++;
+                                  if (*p == '/')
+                                  {
+                                     p++;
+                                     if (--nest == 0)
+                                        break;
+                                  }
+                                  continue;
+
+                               case '\r':
+                                  p++;
+                                  if (*p != '\n')
+                                     loc.linnum++;
+                                  continue;
+
+                               case '\n':
+                                  loc.linnum++;
+                                  p++;
+                                  continue;
+
+                               case 0:
+                               case 0x1A:
+                                  error("unterminated /+ +/ comment");
+                                  p = srcbuf.ptr + srcbuf.length;
+                                  t.value = TOKeof;
+                                  return;
+
+                               default:
+                                  if (c & 0x80)
+                                  {   uint u = decodeUTF();
+                                     if (u == paraSep || u == lineSep)
+                                        loc.linnum++;
+                                  }
+                                  p++;
+                                  continue;
+                            }
+                            break;
+                         }
+                         if (commentToken)
+                         {
                             t.value = TOKcomment;
                             return;
-                        }
-                        if (doDocComment && t.pointer[2] == '/' || t.pointer[2] == '!') // '///' or '//!'
+                         }
+                         if (doDocComment && t.pointer[2] == '+' && p - 4 != t.pointer)
+                         {   // if /++ but not /++/
                             getDocComment(t, lastLine == linnum);
+                         }
+                         continue;
+                      }
 
-                        p++;
-                        loc.linnum++;
-                        continue;
-
-                    case '+':
-                        {
-                            int nest;
-
-                            linnum = loc.linnum;
-                            p++;
-                            nest = 1;
-                            while (true)
-                            {   char c = *p;
-                                switch (c)
-                                {
-                                    case '/':
-                                        p++;
-                                        if (*p == '+')
-                                        {
-                                            p++;
-                                            nest++;
-                                        }
-                                        continue;
-
-                                    case '+':
-                                        p++;
-                                        if (*p == '/')
-                                        {
-                                            p++;
-                                            if (--nest == 0)
-                                                break;
-                                        }
-                                        continue;
-
-                                    case '\r':
-                                        p++;
-                                        if (*p != '\n')
-                                            loc.linnum++;
-                                        continue;
-
-                                    case '\n':
-                                        loc.linnum++;
-                                        p++;
-                                        continue;
-
-                                    case 0:
-                                    case 0x1A:
-                                        error("unterminated /+ +/ comment");
-                                        p = srcbuf.ptr + srcbuf.length;
-                                        t.value = TOKeof;
-                                        return;
-
-                                    default:
-                                        if (c & 0x80)
-                                        {   uint u = decodeUTF();
-                                            if (u == paraSep || u == lineSep)
-                                                loc.linnum++;
-                                        }
-                                        p++;
-                                        continue;
-                                }
-                                break;
-                            }
-                            if (commentToken)
-                            {
-                                t.value = TOKcomment;
-                                return;
-                            }
-                            if (doDocComment && t.pointer[2] == '+' && p - 4 != t.pointer)
-                            {   // if /++ but not /++/
-                                getDocComment(t, lastLine == linnum);
-                            }
-                            continue;
-                        }
-
-                    default:
-                        break;	///
+                   default:
+                      break;	///
                 }
                 t.value = TOKdiv;
                 return;
@@ -538,57 +495,57 @@ class Lexer
                 {   /* Note that we don't allow ._1 and ._ as being
                      * valid floating point numbers.
                      */
-                    p--;
-                    t.value = inreal(t);
+                   p--;
+                   t.value = inreal(t);
                 }
                 else if (p[0] == '.')
                 {
-                    if (p[1] == '.')
-                    {   p += 2;
-                        t.value = TOKdotdotdot;
-                    }
-                    else
-                    {   p++;
-                        t.value = TOKslice;
-                    }
+                   if (p[1] == '.')
+                   {   p += 2;
+                      t.value = TOKdotdotdot;
+                   }
+                   else
+                   {   p++;
+                      t.value = TOKslice;
+                   }
                 }
                 else
-                    t.value = TOKdot;
+                   t.value = TOKdot;
                 return;
 
                 case '&':
                 p++;
                 if (*p == '=')
                 {   p++;
-                    t.value = TOKandass;
+                   t.value = TOKandass;
                 }
                 else if (*p == '&')
                 {   p++;
-                    t.value = TOKandand;
+                   t.value = TOKandand;
                 }
                 else
-                    t.value = TOKand;
+                   t.value = TOKand;
                 return;
 
                 case '|':
                 p++;
                 if (*p == '=')
                 {   p++;
-                    t.value = TOKorass;
+                   t.value = TOKorass;
                 }
                 else if (*p == '|')
                 {   p++;
-                    t.value = TOKoror;
+                   t.value = TOKoror;
                 }
                 else
-                    t.value = TOKor;
+                   t.value = TOKor;
                 return;
 
                 case '-':
                 p++;
                 if (*p == '=')
                 {   p++;
-                    t.value = TOKminass;
+                   t.value = TOKminass;
                 }
                 ///		#if 0
                 ///				else if (*p == '>')
@@ -598,64 +555,64 @@ class Lexer
                 ///		#endif
                 else if (*p == '-')
                 {   p++;
-                    t.value = TOKminusminus;
+                   t.value = TOKminusminus;
                 }
                 else
-                    t.value = TOKmin;
+                   t.value = TOKmin;
                 return;
 
-                case '+':
+               case '+':
                 p++;
                 if (*p == '=')
                 {   p++;
-                    t.value = TOKaddass;
+                   t.value = TOKaddass;
                 }
                 else if (*p == '+')
                 {   p++;
-                    t.value = TOKplusplus;
+                   t.value = TOKplusplus;
                 }
                 else
-                    t.value = TOKadd;
+                   t.value = TOKadd;
                 return;
 
-                case '<':
+               case '<':
                 p++;
                 if (*p == '=')
                 {   p++;
-                    t.value = TOKle;			// <=
+                   t.value = TOKle;			// <=
                 }
                 else if (*p == '<')
                 {   p++;
-                    if (*p == '=')
-                    {   p++;
-                        t.value = TOKshlass;		// <<=
-                    }
-                    else
-                        t.value = TOKshl;		// <<
+                   if (*p == '=')
+                   {   p++;
+                      t.value = TOKshlass;		// <<=
+                   }
+                   else
+                      t.value = TOKshl;		// <<
                 }
                 else if (*p == '>')
                 {   p++;
-                    if (*p == '=')
-                    {   p++;
-                        t.value = TOKleg;		// <>=
-                    }
-                    else
-                        t.value = TOKlg;		// <>
+                   if (*p == '=')
+                   {   p++;
+                      t.value = TOKleg;		// <>=
+                   }
+                   else
+                      t.value = TOKlg;		// <>
                 }
                 else
-                    t.value = TOKlt;			// <
+                   t.value = TOKlt;			// <
                 return;
 
-                case '>':
+               case '>':
                 p++;
                 if (*p == '=')
                 {   p++;
-                    t.value = TOKge;			// >=
+                   t.value = TOKge;			// >=
                 }
                 else if (*p == '>')
                 {   p++;
-                    if (*p == '=')
-                    {   p++;
+                   if (*p == '=')
+                   {   p++;
                         t.value = TOKshrass;		// >>=
                     }
                     else if (*p == '>')
@@ -678,7 +635,7 @@ class Lexer
                 p++;
                 if (*p == '=')
                 {   p++;
-                    if (*p == '=' && lexGlobal.params.Dversion == 1)
+                    if (*p == '=' && lexerGlobal.params.Dversion == 1)
                     {	p++;
                         t.value = TOKnotidentity;	// !==
                     }
@@ -720,7 +677,7 @@ class Lexer
                 p++;
                 if (*p == '=')
                 {   p++;
-                    if (*p == '=' && lexGlobal.params.Dversion == 1)
+                    if (*p == '=' && lexerGlobal.params.Dversion == 1)
                     {	p++;
                         t.value = TOKidentity;		// ===
                     }
@@ -800,9 +757,8 @@ class Lexer
 
                 default:
                     {	
-                        if (p >= srcbuf.ptr + srcbuf.length - 1)
+                        if (p >= srcbuf.ptr + srcbuf.length)
                         {
-                           
                            error("Lexer: p( %s ) exceeded lexing bounds! ( %s )", p, srcbuf.ptr + srcbuf.length);
                         }
                         
@@ -848,8 +804,6 @@ class Lexer
        {
           scan(&token);
        }
-
-       //token.print();
        return token.value;
     }
 
@@ -895,8 +849,8 @@ class Lexer
        }
        else
        { 
-          static int count = 0;
-          ++count;
+          //static int count = 0;
+          //++count;
           t = new Token;
        }
        return t;
@@ -904,13 +858,11 @@ class Lexer
 
     Token* peekPastParen( Token* tk )
     {
-       //printf("peekPastParen()\n");
        int parens = 1;
        int curlynest = 0;
        while (true)
        {
           tk = peek(tk);
-          //tk.print();
           switch (tk.value)
           {
              case TOKlparen:
@@ -1849,7 +1801,7 @@ done:
                     goto L1;
 
                 case 'l':
-                    if (1 || !lexGlobal.params.useDeprecated)
+                    if (1 || !lexerGlobal.params.useDeprecated)
                         error("'l' suffix is deprecated, use 'L' instead");
                 case 'L':
                     f = FLAGS_long;
@@ -2079,7 +2031,7 @@ done:
                 break;
 
             case 'l':
-                if (!lexGlobal.params.useDeprecated)
+                if (!lexerGlobal.params.useDeprecated)
                     error("'l' suffix is deprecated, use 'L' instead");
             case 'L':
                 result = TOKfloat80v;
@@ -2088,7 +2040,7 @@ done:
         }
         if (*p == 'i' || *p == 'I')
         {
-            if (!lexGlobal.params.useDeprecated && *p == 'I')
+            if (!lexerGlobal.params.useDeprecated && *p == 'I')
                 error("'I' suffix is deprecated, use 'i' instead");
             p++;
             switch (result)
@@ -2119,7 +2071,7 @@ done:
     }
     void error(T...)(Loc loc, string format, T t)
     {
-        if (modName && !lexGlobal.gag)
+        if (modName && !lexerGlobal.gag)
         {
             string p = loc.toChars();
             if ( p )
@@ -2127,11 +2079,11 @@ done:
 
             writefln(format, t);
 
-            if (lexGlobal.errors >= 20)	// moderate blizzard of cascading messages
+            if (lexerGlobal.errors >= 20)	// moderate blizzard of cascading messages
                 fatal();          // and it's a good thing too!
         }
 
-        lexGlobal.errors++;
+        lexerGlobal.errors++;
     }
 
     /*********************************************
@@ -2243,7 +2195,46 @@ Lnewline:
 Lerr:
         error(loc, "#line integer [\"filespec\"]\\n expected");
     }
-     
+
+   string scanForHashBang()
+   {
+      if ( p[0] != '#' || p[1] != '!')
+         return null;
+      
+      char* save = ++p; // Put us past the ! now
+      while (true)
+      {
+         switch (*p)
+         {
+            case 0:
+            case 0x1A:
+               error(loc, "eof reached during scanForHashBang!");
+               return null;
+            case '\n':
+               break;
+            case '\r':
+               p++;
+               if (*p != '\n')
+               {   
+                  p--;
+               }
+               break;
+            default:
+					if (*p & 0x80)
+					{
+						uint u = decodeUTF(); 
+						if (u == paraSep || u == lineSep)
+							break;
+					}
+               ++p;
+               continue;
+         }
+         break;
+      }
+      loc.linnum = 2;
+      return save[0..( p - save )].idup;
+   }
+    
     /********************************************
      * Decode UTF character.
      * Issue error messages for invalid sequences.
@@ -2397,7 +2388,6 @@ Lerr:
      +/
 	}
 
-
     /********************************************
      * Combine two document comments into one,
      * separated by a newline.
@@ -2405,7 +2395,6 @@ Lerr:
      // Save DocComments for later
    static string combineComments(string c1, string c2)
    {  
-      write("combineComments, ");
       return c1 ~ c2; 
    }
 

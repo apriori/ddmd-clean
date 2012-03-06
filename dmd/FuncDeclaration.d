@@ -1,23 +1,21 @@
-module dmd.FuncDeclaration;
+module dmd.funcDeclaration;
 
-import dmd.Global;
-import dmd.Declaration;
-import dmd.Token;
-import dmd.ScopeDsymbol;
-import dmd.Parameter;
-import dmd.Statement;
-import dmd.Identifier;
-import dmd.VarDeclaration;
-import dmd.Type;
-import dmd.types.TypeFunction;
-import dmd.Expression;
-import dmd.Dsymbol;
+import dmd.global;
+import dmd.declaration;
+import dmd.token;
+import dmd.scopeDsymbol;
+import dmd.parameter;
+import dmd.statement;
+import dmd.identifier;
+import dmd.varDeclaration;
+import dmd.type;
+import dmd.expression;
+import dmd.dsymbol;
 import dmd.Scope;
-import dmd.HdrGenState;
+import dmd.hdrGenState;
 import std.array;
-import dmd.BaseClass;
 import dmd.Module;
-import dmd.AttribDeclaration;
+import dmd.attribDeclaration;
 
 import std.string;
 
@@ -48,7 +46,7 @@ class FuncDeclaration : Declaration
     Dsymbol[string] localsymtab;		// used to prevent symbols in different
                           // scopes from having the same name
     VarDeclaration vthis;		// 'this' parameter (member and nested)
-    VarDeclaration v_arguments;	// '_arguments' parameter
+    //VarDeclaration v_arguments;	// '_arguments' parameter
     Dsymbol[] parameters;		// Array of VarDeclaration's for parameters
     LabelDsymbol[string] labtab;		// statement label symbol table
     Declaration overnext;		// next in overload list
@@ -106,7 +104,7 @@ class FuncDeclaration : Declaration
 		//builtin = BUILTINunknown;
 	}
 
-    override Dsymbol syntaxCopy(Dsymbol s)
+   override Dsymbol syntaxCopy(Dsymbol s)
 	{
 		FuncDeclaration f;
 
@@ -124,34 +122,53 @@ class FuncDeclaration : Declaration
 		return f;
 	}
 
-	// Do the semantic analysis on the external interface to the function.
+   override Dobject descend( int rank )
+   {
+      switch (rank)
+      {
+         case 1:
+            return type;
+            break;
+         case 2:
+            return ident;
+            break;
+         case 3:
+            return parameters[0];
+            break;
+         case 4:
+            return fbody;
+            break;
+         default:
+            return fbody;
+      }
+      return null;
+   }
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
-//		writef("FuncDeclaration.toCBuffer() '%s'\n", toChars());
-
 		StorageClassDeclaration.stcToCBuffer(buf, storage_class);
 		type.toCBuffer(buf, ident, hgs);
+      buf.put(hgs.nL);
 		bodyToCBuffer(buf, hgs);
+      buf.put(hgs.nL);
 	}
 
 	void bodyToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
 		if (fbody )
 		{
-			buf.put('\n');
-
-			// in{}
+         // in{}
 			if (frequire)
 			{
+            buf.put(hgs.indent);
 				buf.put("in");
-				buf.put('\n');
+				buf.put(hgs.nL);
 				frequire.toCBuffer(buf, hgs);
 			}
-
 			// out{}
 			if (fensure)
 			{
+            buf.put(hgs.indent);
 				buf.put("out");
 				if (outId)
 				{
@@ -159,25 +176,26 @@ class FuncDeclaration : Declaration
 					buf.put(outId.toChars());
 					buf.put(')');
 				}
-				buf.put('\n');
+				buf.put(hgs.nL);
 				fensure.toCBuffer(buf, hgs);
 			}
-
 			if (frequire || fensure)
 			{
+            buf.put(hgs.indent);
 				buf.put("body");
-				buf.put('\n');
+				buf.put(hgs.nL);
 			}
-
+         buf.put(hgs.indent);
 			buf.put('{');
-			buf.put('\n');
+         buf.put(hgs.pushNewLine);
 			fbody.toCBuffer(buf, hgs);
+         buf.put(hgs.popIndent);
 			buf.put('}');
-			buf.put('\n');
+			buf.put(hgs.nL);
 		}
 		else
-		{   buf.put(';');
-			buf.put('\n');
+		{   
+         buf.put(';');
 		}
 	}
 
@@ -424,677 +442,673 @@ class FuncDeclaration : Declaration
 
 class CtorDeclaration : FuncDeclaration
 {
-	Parameter[] arguments;
-    int varargs;
+   Parameter[] arguments;
+   int varargs;
 
-    this(Loc loc, Loc endloc, Parameter[] arguments, int varargs)
-	{
-		super(loc, endloc, Id.ctor, STCundefined, null);
-		
-		this.arguments = arguments;
-		this.varargs = varargs;
-		//printf("CtorDeclaration(loc = %s) %s\n", loc.toChars(), toChars());
-	}
-	
-    override Dsymbol syntaxCopy(Dsymbol)
-	{
-		CtorDeclaration f = new CtorDeclaration(loc, endloc, null, varargs);
+   this(Loc loc, Loc endloc, Parameter[] arguments, int varargs)
+   {
+      super(loc, endloc, Id.ctor, STCundefined, null);
 
-		f.outId = outId;
-		f.frequire = frequire ? frequire.syntaxCopy() : null;
-		f.fensure  = fensure  ? fensure.syntaxCopy()  : null;
-		f.fbody    = fbody    ? fbody.syntaxCopy()    : null;
-		assert(!fthrows); // deprecated
+      this.arguments = arguments;
+      this.varargs = varargs;
+      //printf("CtorDeclaration(loc = %s) %s\n", loc.toChars(), toChars());
+   }
 
-		f.arguments = Parameter.arraySyntaxCopy(arguments);
-		return f;
-	}
-	
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-    {
-       if (hgs.hdrgen)
-       {   buf.put("static this();");
-          buf.put('\n');
-          return;
-       }
-       buf.put("static this()");
-       bodyToCBuffer(buf, hgs);
-    }
+   override Dsymbol syntaxCopy(Dsymbol)
+   {
+      CtorDeclaration f = new CtorDeclaration(loc, endloc, null, varargs);
 
+      f.outId = outId;
+      f.frequire = frequire ? frequire.syntaxCopy() : null;
+      f.fensure  = fensure  ? fensure.syntaxCopy()  : null;
+      f.fbody    = fbody    ? fbody.syntaxCopy()    : null;
+      assert(!fthrows); // deprecated
 
-    override string kind()
-    {
-       return "constructor";
-    }
+      f.arguments = Parameter.arraySyntaxCopy(arguments);
+      return f;
+   }
 
-    override string toChars()
-    {
-       return "this";
-    }
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("this");
+      Parameter.argsToCBuffer(buf, hgs, arguments, varargs);
+      buf.put(hgs.nL);
+      bodyToCBuffer(buf, hgs);
+      buf.put(hgs.nL);
+   }
 
-    override bool isVirtual()
-    {
-       return false;
-    }
+   override string kind()
+   {
+      return "constructor";
+   }
 
-    override bool addPreInvariant()
-    {
-       return false;
-    }
-	
-    override bool addPostInvariant()
-	{
-		return (isThis() && vthis && global.params.useInvariants);
-	}
-	
-    override void toDocBuffer(ref Appender!(char[]) buf)
-	{
-		assert(false);
-	}
+   override string toChars()
+   {
+      return "this";
+   }
 
-    override CtorDeclaration isCtorDeclaration() { return this; }
+   override bool isVirtual()
+   {
+      return false;
+   }
+
+   override bool addPreInvariant()
+   {
+      return false;
+   }
+
+   override bool addPostInvariant()
+   {
+      return (isThis() && vthis && global.params.useInvariants);
+   }
+
+   override void toDocBuffer(ref Appender!(char[]) buf)
+   {
+      assert(false);
+   }
+
+   override CtorDeclaration isCtorDeclaration() { return this; }
 }
 
 class DeleteDeclaration : FuncDeclaration
 {
-	Parameter[] arguments;
+   Parameter[] arguments;
 
-    this(Loc loc, Loc endloc, Parameter[] arguments)
-	{
-		super(loc, endloc, Id.classDelete, STCstatic, null);
-		this.arguments = arguments;
-	}
-	
-    override Dsymbol syntaxCopy(Dsymbol)
-	{
-		DeleteDeclaration f;
+   this(Loc loc, Loc endloc, Parameter[] arguments)
+   {
+      super(loc, endloc, Id.classDelete, STCstatic, null);
+      this.arguments = arguments;
+   }
 
-		f = new DeleteDeclaration(loc, endloc, null);
+   override Dsymbol syntaxCopy(Dsymbol)
+   {
+      DeleteDeclaration f;
 
-		FuncDeclaration.syntaxCopy(f);
+      f = new DeleteDeclaration(loc, endloc, null);
 
-		f.arguments = Parameter.arraySyntaxCopy(arguments);
+      FuncDeclaration.syntaxCopy(f);
 
-		return f;
-	}
-	
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("delete");
-		Parameter.argsToCBuffer(buf, hgs, arguments, 0);
-		bodyToCBuffer(buf, hgs);
-	}
-	
-    override string kind()
-	{
-		return "deallocator";
-	}
+      f.arguments = Parameter.arraySyntaxCopy(arguments);
 
-    override bool isDelete()
-	{
-		return true;
-	}
-	
-    override bool isVirtual()
-	{
-		return false;
-	}
-	
-    override bool addPreInvariant()
-	{
-		return false;
-	}
-	
-    override bool addPostInvariant()
-	{
-		return false;
-	}
-	
-version (_DH) {
-    DeleteDeclaration isDeleteDeclaration() { return this; }
-}
+      return f;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("delete");
+      Parameter.argsToCBuffer(buf, hgs, arguments, 0);
+      bodyToCBuffer(buf, hgs);
+   }
+
+   override string kind()
+   {
+      return "deallocator";
+   }
+
+   override bool isDelete()
+   {
+      return true;
+   }
+
+   override bool isVirtual()
+   {
+      return false;
+   }
+
+   override bool addPreInvariant()
+   {
+      return false;
+   }
+
+   override bool addPostInvariant()
+   {
+      return false;
+   }
+
+   version (_DH) {
+      DeleteDeclaration isDeleteDeclaration() { return this; }
+   }
 }
 
 class DtorDeclaration : FuncDeclaration
 {
-	this(Loc loc, Loc endloc)
-	{
-		super(loc, endloc, Id.dtor, STCundefined, null);
-	}
+   this(Loc loc, Loc endloc)
+   {
+      super(loc, endloc, Id.dtor, STCundefined, null);
+   }
 
-	this(Loc loc, Loc endloc, Identifier id)
-	{
-		super(loc, endloc, id, STCundefined, null);
-	}
+   this(Loc loc, Loc endloc, Identifier id)
+   {
+      super(loc, endloc, id, STCundefined, null);
+   }
 
-	override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		DtorDeclaration dd = new DtorDeclaration(loc, endloc, ident);
-		return super.syntaxCopy(dd);
-	}
-	
-	
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("~this()");
-		bodyToCBuffer(buf, hgs);
-	}
-	
-	override void toJsonBuffer(ref Appender!(char[]) buf)
-	{
-		// intentionally empty
-	}
-	
-	override string kind()
-	{
-		return "destructor";
-	}
-	
-	override string toChars()
-	{
-		return "~this";
-	}
-	
-	override bool isVirtual()
-	{
-		/* This should be FALSE so that dtor's don't get put into the vtbl[],
-		 * but doing so will require recompiling everything.
-		 */
-	version (BREAKABI) {
-		return false;
-	} else {
-		return super.isVirtual();
-	}
-	}
-	
-	override bool addPreInvariant()
-	{
-		return (isThis() && vthis && global.params.useInvariants);
-	}
-	
-	override bool addPostInvariant()
-	{
-		return false;
-	}
-	
-	override bool overloadInsert(Dsymbol s)
-	{
-		return false;	   // cannot overload destructors
-	}
-	
-	override void emitComment(Scope sc)
-	{
-		// intentionally empty
-	}
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      DtorDeclaration dd = new DtorDeclaration(loc, endloc, ident);
+      return super.syntaxCopy(dd);
+   }
 
-	override DtorDeclaration isDtorDeclaration() { return this; }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("~this()");
+		buf.put(hgs.nL);
+      bodyToCBuffer(buf, hgs);
+   }
+
+   override void toJsonBuffer(ref Appender!(char[]) buf)
+   {
+      // intentionally empty
+   }
+
+   override string kind()
+   {
+      return "destructor";
+   }
+
+   override string toChars()
+   {
+      return "~this";
+   }
+
+   override bool isVirtual()
+   {
+      /* This should be FALSE so that dtor's don't get put into the vtbl[],
+       * but doing so will require recompiling everything.
+       */
+      version (BREAKABI) {
+         return false;
+      } else {
+         return super.isVirtual();
+      }
+   }
+
+   override bool addPreInvariant()
+   {
+      return (isThis() && vthis && global.params.useInvariants);
+   }
+
+   override bool addPostInvariant()
+   {
+      return false;
+   }
+
+   override bool overloadInsert(Dsymbol s)
+   {
+      return false;	   // cannot overload destructors
+   }
+
+   override void emitComment(Scope sc)
+   {
+      // intentionally empty
+   }
+
+   override DtorDeclaration isDtorDeclaration() { return this; }
 }
 
 class FuncAliasDeclaration : FuncDeclaration
 {
-    FuncDeclaration funcalias;
+   FuncDeclaration funcalias;
 
-    this(FuncDeclaration funcalias)
-	{
-		super(funcalias.loc, funcalias.endloc, funcalias.ident, funcalias.storage_class, funcalias.type);
-		assert(funcalias !is this);
-		this.funcalias = funcalias;
-	}
+   this(FuncDeclaration funcalias)
+   {
+      super(funcalias.loc, funcalias.endloc, funcalias.ident, funcalias.storage_class, funcalias.type);
+      assert(funcalias !is this);
+      this.funcalias = funcalias;
+   }
 
-    override FuncAliasDeclaration isFuncAliasDeclaration() { return this; }
-	
-    override string kind()
-	{
-		return "function alias";
-	}
-	
+   override FuncAliasDeclaration isFuncAliasDeclaration() { return this; }
+
+   override string kind()
+   {
+      return "function alias";
+   }
+
 }
 
 class FuncLiteralDeclaration : FuncDeclaration
 {
-    TOK tok;			// TOKfunction or TOKdelegate
+   TOK tok;			// TOKfunction or TOKdelegate
 
-    this(Loc loc, Loc endloc, Type type, TOK tok, ForeachStatement fes)
-	{
-		super(loc, endloc, null, STCundefined, type);
-		
-		string id;
+   this(Loc loc, Loc endloc, Type type, TOK tok, ForeachStatement fes)
+   {
+      super(loc, endloc, null, STCundefined, type);
 
-		if (fes)
-			id = "__foreachbody";
-		else if (tok == TOKdelegate)
-			id = "__dgliteral";
-		else
-			id = "__funcliteral";
+      string id;
 
-		this.ident = Identifier.uniqueId(id);
-		this.tok = tok;
-		this.fes = fes;
+      if (fes)
+         id = "__foreachbody";
+      else if (tok == TOKdelegate)
+         id = "__dgliteral";
+      else
+         id = "__funcliteral";
 
-		//printf("FuncLiteralDeclaration() id = '%s', type = '%s'\n", this->ident->toChars(), type->toChars());
-	}
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-    	buf.put(kind());
-        buf.put(' ');
-        type.toCBuffer(buf, null, hgs);
-        bodyToCBuffer(buf, hgs);
-	}
+      this.ident = Identifier.uniqueId(id);
+      this.tok = tok;
+      this.fes = fes;
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		FuncLiteralDeclaration f;
+      //printf("FuncLiteralDeclaration() id = '%s', type = '%s'\n", this->ident->toChars(), type->toChars());
+   }
 
-		//printf("FuncLiteralDeclaration.syntaxCopy('%s')\n", toChars());
-		if (s)
-			f = cast(FuncLiteralDeclaration)s;
-		else
-		{	
-			f = new FuncLiteralDeclaration(loc, endloc, type.syntaxCopy(), tok, fes);
-			f.ident = ident;		// keep old identifier
-		}
-		FuncDeclaration.syntaxCopy(f);
-		return f;
-	}
-	
-    override bool isNested()
-	{
-		//printf("FuncLiteralDeclaration::isNested() '%s'\n", toChars());
-		return (tok == TOKdelegate);
-	}
-	
-    override bool isVirtual()
-	{
-		return false;
-	}
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put(kind());
+      buf.put(' ');
+      type.toCBuffer(buf, null, hgs);
+      bodyToCBuffer(buf, hgs);
+   }
 
-    override FuncLiteralDeclaration isFuncLiteralDeclaration() { return this; }
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      FuncLiteralDeclaration f;
 
-    override string kind()
-	{
-		return (tok == TOKdelegate) ? "delegate" : "function";
-	}
+      //printf("FuncLiteralDeclaration.syntaxCopy('%s')\n", toChars());
+      if (s)
+         f = cast(FuncLiteralDeclaration)s;
+      else
+      {	
+         f = new FuncLiteralDeclaration(loc, endloc, type.syntaxCopy(), tok, fes);
+         f.ident = ident;		// keep old identifier
+      }
+      FuncDeclaration.syntaxCopy(f);
+      return f;
+   }
+
+   override bool isNested()
+   {
+      //printf("FuncLiteralDeclaration::isNested() '%s'\n", toChars());
+      return (tok == TOKdelegate);
+   }
+
+   override bool isVirtual()
+   {
+      return false;
+   }
+
+   override FuncLiteralDeclaration isFuncLiteralDeclaration() { return this; }
+
+   override string kind()
+   {
+      return (tok == TOKdelegate) ? "delegate" : "function";
+   }
 }
 
 class InvariantDeclaration : FuncDeclaration
 {
-    this(Loc loc, Loc endloc)
-	{
-		super(loc, endloc, Id.classInvariant, STCundefined, null);
-	}
+   this(Loc loc, Loc endloc)
+   {
+      super(loc, endloc, Id.classInvariant, STCundefined, null);
+   }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		InvariantDeclaration id = new InvariantDeclaration(loc, endloc);
-		FuncDeclaration.syntaxCopy(id);
-		return id;
-	}
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      InvariantDeclaration id = new InvariantDeclaration(loc, endloc);
+      FuncDeclaration.syntaxCopy(id);
+      return id;
+   }
 
 
-    override bool isVirtual()
-	{
-		return false;
-	}
+   override bool isVirtual()
+   {
+      return false;
+   }
 
-    override bool addPreInvariant()
-	{
-		return false;
-	}
+   override bool addPreInvariant()
+   {
+      return false;
+   }
 
-    override bool addPostInvariant()
-	{
-		return false;
-	}
+   override bool addPostInvariant()
+   {
+      return false;
+   }
 
-    override void emitComment(Scope sc)
-	{
-		assert(false);
-	}
+   override void emitComment(Scope sc)
+   {
+      assert(false);
+   }
 
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		if (hgs.hdrgen)
-			return;
-		buf.put("invariant");
-		bodyToCBuffer(buf, hgs);
-	}
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      if (hgs.hdrgen)
+         return;
+      buf.put("invariant");
+      bodyToCBuffer(buf, hgs);
+   }
 
-	override void toJsonBuffer(ref Appender!(char[]) buf)
-	{
-	}
+   override void toJsonBuffer(ref Appender!(char[]) buf)
+   {
+   }
 
-	override InvariantDeclaration isInvariantDeclaration() { return this; }
+   override InvariantDeclaration isInvariantDeclaration() { return this; }
 }
 
 class NewDeclaration : FuncDeclaration
 {
-	Parameter[] arguments;
-    int varargs;
+   Parameter[] arguments;
+   int varargs;
 
-    this(Loc loc, Loc endloc, Parameter[] arguments, int varargs)
-	{
-		super(loc, endloc, Id.classNew, STCstatic, null);
-		this.arguments = arguments;
-		this.varargs = varargs;
-	}
+   this(Loc loc, Loc endloc, Parameter[] arguments, int varargs)
+   {
+      super(loc, endloc, Id.classNew, STCstatic, null);
+      this.arguments = arguments;
+      this.varargs = varargs;
+   }
 
-    override Dsymbol syntaxCopy(Dsymbol)
-	{
-		NewDeclaration f;
+   override Dsymbol syntaxCopy(Dsymbol)
+   {
+      NewDeclaration f;
 
-		f = new NewDeclaration(loc, endloc, null, varargs);
+      f = new NewDeclaration(loc, endloc, null, varargs);
 
-		FuncDeclaration.syntaxCopy(f);
+      FuncDeclaration.syntaxCopy(f);
 
-		f.arguments = Parameter.arraySyntaxCopy(arguments);
+      f.arguments = Parameter.arraySyntaxCopy(arguments);
 
-		return f;
-	}
+      return f;
+   }
 
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("new");
+      Parameter.argsToCBuffer(buf, hgs, arguments, varargs);
+      bodyToCBuffer(buf, hgs);
+   }
 
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("new");
-		Parameter.argsToCBuffer(buf, hgs, arguments, varargs);
-		bodyToCBuffer(buf, hgs);
-	}
+   override string kind()
+   {
+      return "allocator";
+   }
 
-    override string kind()
-	{
-		return "allocator";
-	}
+   override bool isVirtual()
+   {
+      return false;
+   }
 
-    override bool isVirtual()
-	{
-		return false;
-	}
+   override bool addPreInvariant()
+   {
+      return false;
+   }
 
-    override bool addPreInvariant()
-	{
-		return false;
-	}
+   override bool addPostInvariant()
+   {
+      return false;
+   }
 
-    override bool addPostInvariant()
-	{
-		return false;
-	}
-
-    override NewDeclaration isNewDeclaration() { return this; }
+   override NewDeclaration isNewDeclaration() { return this; }
 }
 
 class PostBlitDeclaration : FuncDeclaration
 {
-	this(Loc loc, Loc endloc)
-	{
-		super(loc, endloc, Id._postblit, STCundefined, null);
-	}
-	
-	this(Loc loc, Loc endloc, Identifier id)
-	{
-		super(loc, loc, id, STCundefined, null);
-	}
-	
-	override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		PostBlitDeclaration dd = new PostBlitDeclaration(loc, endloc, ident);
-		return super.syntaxCopy(dd);
-	}
-	
-	
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("this(this)");
-		bodyToCBuffer(buf, hgs);
-	}
-	
-	override void toJsonBuffer(ref Appender!(char[]) buf)
-	{
-		// intentionally empty
-	}
+   this(Loc loc, Loc endloc)
+   {
+      super(loc, endloc, Id._postblit, STCundefined, null);
+   }
 
-	override bool isVirtual()
-	{
-		return false;
-	}
-	
-	override bool addPreInvariant()
-	{
-		return false;
-	}
-	
-	override bool addPostInvariant()
-	{
-		return (isThis() && vthis && global.params.useInvariants);
-	}
-	
-	override bool overloadInsert(Dsymbol s)
-	{
-		return false;	   // cannot overload postblits
-	}
-	
-	override void emitComment(Scope sc)
-	{
-		// intentionally empty
-	}
+   this(Loc loc, Loc endloc, Identifier id)
+   {
+      super(loc, loc, id, STCundefined, null);
+   }
 
-	override PostBlitDeclaration isPostBlitDeclaration() { return this; }
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      PostBlitDeclaration dd = new PostBlitDeclaration(loc, endloc, ident);
+      return super.syntaxCopy(dd);
+   }
+
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("this(this)");
+      bodyToCBuffer(buf, hgs);
+   }
+
+   override void toJsonBuffer(ref Appender!(char[]) buf)
+   {
+      // intentionally empty
+   }
+
+   override bool isVirtual()
+   {
+      return false;
+   }
+
+   override bool addPreInvariant()
+   {
+      return false;
+   }
+
+   override bool addPostInvariant()
+   {
+      return (isThis() && vthis && global.params.useInvariants);
+   }
+
+   override bool overloadInsert(Dsymbol s)
+   {
+      return false;	   // cannot overload postblits
+   }
+
+   override void emitComment(Scope sc)
+   {
+      // intentionally empty
+   }
+
+   override PostBlitDeclaration isPostBlitDeclaration() { return this; }
 }
 
 class StaticCtorDeclaration : FuncDeclaration
 {
-    this(Loc loc, Loc endloc, string name = "_staticCtor")
-	{
-		super(loc, endloc, Identifier.uniqueId("_staticCtor"), STCstatic, null);
-	}
+   this(Loc loc, Loc endloc, string name = "_staticCtor")
+   {
+      super(loc, endloc, Identifier.uniqueId("_staticCtor"), STCstatic, null);
+   }
 
-	override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		StaticCtorDeclaration scd = new StaticCtorDeclaration(loc, endloc);
-		return FuncDeclaration.syntaxCopy(scd);
-	}
-	
-	
-	override AggregateDeclaration isThis()
-	{
-		return null;
-	}
-	
-	override bool isVirtual()
-	{
-		return false;
-	}
-	
-	override bool addPreInvariant()
-	{
-		return false;
-	}
-	
-	override bool addPostInvariant()
-	{
-		return false;
-	}
-	
-	override void emitComment(Scope sc)
-	{
-	}
-	
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		if (hgs.hdrgen)
-		{
-			buf.put("static this();\n");
-			return;
-		}
-		buf.put("static this()");
-		bodyToCBuffer(buf, hgs);
-	}
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      StaticCtorDeclaration scd = new StaticCtorDeclaration(loc, endloc);
+      return FuncDeclaration.syntaxCopy(scd);
+   }
 
-	override void toJsonBuffer(ref Appender!(char[]) buf)
-	{
-	}
 
-	override StaticCtorDeclaration isStaticCtorDeclaration() { return this; }
+   override AggregateDeclaration isThis()
+   {
+      return null;
+   }
+
+   override bool isVirtual()
+   {
+      return false;
+   }
+
+   override bool addPreInvariant()
+   {
+      return false;
+   }
+
+   override bool addPostInvariant()
+   {
+      return false;
+   }
+
+   override void emitComment(Scope sc)
+   {
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      if (hgs.hdrgen)
+      {
+         buf.put("static this();\n");
+         return;
+      }
+      buf.put("static this()");
+      bodyToCBuffer(buf, hgs);
+   }
+
+   override void toJsonBuffer(ref Appender!(char[]) buf)
+   {
+   }
+
+   override StaticCtorDeclaration isStaticCtorDeclaration() { return this; }
 }
 
 class SharedStaticCtorDeclaration : StaticCtorDeclaration
 {
-    this(Loc loc, Loc endloc)
-	{
-		super(loc, endloc, "_sharedStaticCtor");
-	}
-	
-    Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		SharedStaticCtorDeclaration scd = new SharedStaticCtorDeclaration(loc, endloc);
-		return FuncDeclaration.syntaxCopy(scd);
-	}
-	
-    void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("shared ");
-		StaticCtorDeclaration.toCBuffer(buf, hgs);
-	}
+   this(Loc loc, Loc endloc)
+   {
+      super(loc, endloc, "_sharedStaticCtor");
+   }
 
-    SharedStaticCtorDeclaration isSharedStaticCtorDeclaration() { return this; }
+   Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      SharedStaticCtorDeclaration scd = new SharedStaticCtorDeclaration(loc, endloc);
+      return FuncDeclaration.syntaxCopy(scd);
+   }
+
+   void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("shared ");
+      StaticCtorDeclaration.toCBuffer(buf, hgs);
+   }
+
+   SharedStaticCtorDeclaration isSharedStaticCtorDeclaration() { return this; }
 }
 
 class StaticDtorDeclaration : FuncDeclaration
 {
-	VarDeclaration vgate;	// 'gate' variable
+   VarDeclaration vgate;	// 'gate' variable
 
-    this(Loc loc, Loc endloc, string name = "_staticDtor")
-	{
-		super(loc, endloc, Identifier.uniqueId(name), STCstatic, null);
-	    vgate = null;
-	}
-	
-	override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		StaticDtorDeclaration sdd = new StaticDtorDeclaration(loc, endloc);
-		return super.syntaxCopy(sdd);
-	}
-	
-	
-	override AggregateDeclaration isThis()
-	{
-		return null;
-	}
-	
-	override bool isVirtual()
-	{
-		return false;
-	}
-	
-	override bool addPreInvariant()
-	{
-		return false;
-	}
-	
-	override bool addPostInvariant()
-	{
-		return false;
-	}
-	
-	override void emitComment(Scope sc)
-	{
-	}
-	
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		if (hgs.hdrgen)
-			return;
-		buf.put("static ~this()");
-		bodyToCBuffer(buf, hgs);
-	}
+   this(Loc loc, Loc endloc, string name = "_staticDtor")
+   {
+      super(loc, endloc, Identifier.uniqueId(name), STCstatic, null);
+      vgate = null;
+   }
 
-	override void toJsonBuffer(ref Appender!(char[]) buf)
-	{
-	}
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      StaticDtorDeclaration sdd = new StaticDtorDeclaration(loc, endloc);
+      return super.syntaxCopy(sdd);
+   }
 
-	override StaticDtorDeclaration isStaticDtorDeclaration() { return this; }
+
+   override AggregateDeclaration isThis()
+   {
+      return null;
+   }
+
+   override bool isVirtual()
+   {
+      return false;
+   }
+
+   override bool addPreInvariant()
+   {
+      return false;
+   }
+
+   override bool addPostInvariant()
+   {
+      return false;
+   }
+
+   override void emitComment(Scope sc)
+   {
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      if (hgs.hdrgen)
+         return;
+      buf.put("static ~this()");
+      bodyToCBuffer(buf, hgs);
+   }
+
+   override void toJsonBuffer(ref Appender!(char[]) buf)
+   {
+   }
+
+   override StaticDtorDeclaration isStaticDtorDeclaration() { return this; }
 }
 
 class SharedStaticDtorDeclaration : StaticDtorDeclaration
 {
-    this(Loc loc, Loc endloc)
-	{
-	    super(loc, endloc, "_sharedStaticDtor");
-	}
-	
-    Dsymbol syntaxCopy(Dsymbol s)
-	{
-		assert(!s);
-		SharedStaticDtorDeclaration sdd = new SharedStaticDtorDeclaration(loc, endloc);
-		return FuncDeclaration.syntaxCopy(sdd);
-	}
-	
-    void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-	    if (!hgs.hdrgen)
-		{
-			buf.put("shared ");
-			StaticDtorDeclaration.toCBuffer(buf, hgs);
-		}
-	}
+   this(Loc loc, Loc endloc)
+   {
+      super(loc, endloc, "_sharedStaticDtor");
+   }
 
-    SharedStaticDtorDeclaration isSharedStaticDtorDeclaration() { return this; }
+   Dsymbol syntaxCopy(Dsymbol s)
+   {
+      assert(!s);
+      SharedStaticDtorDeclaration sdd = new SharedStaticDtorDeclaration(loc, endloc);
+      return FuncDeclaration.syntaxCopy(sdd);
+   }
+
+   void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      if (!hgs.hdrgen)
+      {
+         buf.put("shared ");
+         StaticDtorDeclaration.toCBuffer(buf, hgs);
+      }
+   }
+
+   SharedStaticDtorDeclaration isSharedStaticDtorDeclaration() { return this; }
 }
 
 class UnitTestDeclaration : FuncDeclaration
 {
-    this(Loc loc, Loc endloc)
-	{
-		super(loc, endloc, unitTestId(), STCundefined, null);
-	}
+   this(Loc loc, Loc endloc)
+   {
+      super(loc, endloc, unitTestId(), STCundefined, null);
+   }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		UnitTestDeclaration utd;
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      UnitTestDeclaration utd;
 
-		assert(!s);
-		utd = new UnitTestDeclaration(loc, endloc);
+      assert(!s);
+      utd = new UnitTestDeclaration(loc, endloc);
 
-		return FuncDeclaration.syntaxCopy(utd);
-	}
+      return FuncDeclaration.syntaxCopy(utd);
+   }
 
 
-    override AggregateDeclaration isThis()
-	{
-		return null;
-	}
+   override AggregateDeclaration isThis()
+   {
+      return null;
+   }
 
-    override bool isVirtual()
-	{
-		return false;
-	}
+   override bool isVirtual()
+   {
+      return false;
+   }
 
-    override bool addPreInvariant()
-	{
-		return false;
-	}
+   override bool addPreInvariant()
+   {
+      return false;
+   }
 
-    override bool addPostInvariant()
-	{
-		return false;
-	}
+   override bool addPostInvariant()
+   {
+      return false;
+   }
 
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-    {
-       if (hgs.hdrgen)
-          return;
-       buf.put("unittest");
-       buf.put("\n");
-       bodyToCBuffer(buf, hgs);
-    }
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      if (hgs.hdrgen)
+         return;
+      buf.put("unittest");
+      buf.put(hgs.nL);
+      bodyToCBuffer(buf, hgs);
+      buf.put(hgs.nL);
+   }
 
-    override UnitTestDeclaration isUnitTestDeclaration() { return this; }
+   override UnitTestDeclaration isUnitTestDeclaration() { return this; }
 }

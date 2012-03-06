@@ -1,16 +1,16 @@
 module dmd.Scope;
 // also defines enum CSX and enum SCOPE
 
-import dmd.Global;
-import dmd.Type;
+import dmd.global;
+import dmd.type;
 import std.array;
 import dmd.Module;
-import dmd.ScopeDsymbol;
-import dmd.FuncDeclaration;
-import dmd.Dsymbol;
-import dmd.Statement;
-import dmd.Identifier;
-import dmd.DocComment;
+import dmd.scopeDsymbol;
+import dmd.funcDeclaration;
+import dmd.dsymbol;
+import dmd.statement;
+import dmd.identifier;
+import dmd.docComment;
 
 
 alias int SCOPE;

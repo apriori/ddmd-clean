@@ -1,24 +1,24 @@
-module dmd.Expression;
+module dmd.expression;
 // also defines enum WANT,
 
-import dmd.Global;
-import dmd.Parameter;
-import dmd.UnaExp;
-import dmd.BinExp;
-import dmd.Identifier;
-import dmd.VarDeclaration;
-import dmd.Type;
+import dmd.global;
+import dmd.parameter;
+import dmd.unaExp;
+import dmd.binExp;
+import dmd.identifier;
+import dmd.varDeclaration;
+import dmd.type;
 import dmd.Scope;
-import dmd.HdrGenState;
-import dmd.Dsymbol;
-import dmd.Declaration;
-import dmd.TemplateParameter;
-import dmd.ScopeDsymbol;
-import dmd.FuncDeclaration;
-import dmd.Statement;
-import dmd.Token;
-import dmd.types.TypeEnum;
-import dmd.types.TypeTypedef;
+import dmd.hdrGenState;
+import dmd.dsymbol;
+import dmd.declaration;
+import dmd.templateParameter;
+import dmd.scopeDsymbol;
+import dmd.funcDeclaration;
+import dmd.statement;
+import dmd.token;
+//import dmd.types.TypeEnum;
+//import dmd.types.TypeTypedef;
 
 import std.stdio;
 import std.format, std.string;
@@ -54,344 +54,302 @@ enum
 Expression castToExpression(int i)
 {
 	union U
-	{
-		int i;
-		Expression e;
-	}
-	
-	U u;
-	u.i = i;
-	return u.e;
-}
-
-/**************************************************
- * Write expression out to buf, but wrap it
- * in ( ) if its precedence is less than pr.
- */
-
-/+this is in the class, is it needed here?
-void expToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs, Expression e, PREC pr)
-{
-    //if (precedence[e.op] == 0) e.dump(0);
-    if ( precedence[e.op] < pr ||
-	       /* Despite precedence, we don't allow a<b<c expressions.
-	       * They must be parenthesized.
-	       */
-	       (pr == PREC_rel && precedence[e.op] == pr)
-        )
-    {
-		buf.put('(');
-		e.toCBuffer(buf, hgs);
-		buf.put(')');
-    }
-    else
-		e.toCBuffer(buf, hgs);
-}
-+/
-/+ Ithink this is unnecessary too
-/**************************************************
- * Write out argument list to buf.
- */
-
-void argsToCBuffer(ref Appender!(char[]) buf, Expression[] arguments, ref HdrGenState hgs)
-{
-    if (arguments)
-    {
-		foreach (size_t i, Expression arg; arguments)
-		{   
-			if (arg)
-			{	
-				if (i)
-					buf.put(',');
-				expToCBuffer(buf, hgs, arg, PREC_assign);
-			}
-		}
-    }
-}
-+/
-
-
-class Expression
-{
-    Loc loc;			// file location
-    TOK op;		// handy to minimize use of dynamic_cast
-      
-    Type type; // !=null means that semantic() has been run
-    int size;			// # of bytes in Expression so we can copy() it
-
-    this(Loc loc, TOK op, int size)
-	{
-		this.loc = loc;
-		//writef("Expression.Expression(op = %d %s) this = %p\n", op, to!(string)(op), this);
-		this.op = op;
-		this.size = size;
-	}
-
-	//bool equals(Object o) { assert (false,"zd cut"); }
-
-	/*********************************
-	 * Does *not* do a deep copy.
-	 */
-    Expression copy()
-	{
-      return cloneThis(this);
-	}
-	
-    Expression syntaxCopy()
-	{
-		//printf("Expression::syntaxCopy()\n");
-		//dump(0);
-		return copy();
-	}
-    
-    /**************************************************
-     * Write expression out to buf, but wrap it
-     * in ( ) if its precedence is less than pr.
-     */
-
-    void expToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs, Expression e, PREC pr)
-    {
-        //if (precedence[e.op] == 0) e.dump(0);
-        if (precedence[e.op] < pr ||
-                /* Despite precedence, we don't allow a<b<c expressions.
-                 * They must be parenthesized.
-                 */
-                (pr == PREC_rel && precedence[e.op] == pr))
-        {
-            buf.put('(');
-            e.toCBuffer(buf, hgs);
-            buf.put(')');
-        }
-        else
-            e.toCBuffer(buf, hgs);
-    }
-
-    /**************************************************
-     * Write out argument list to buf.
-     */
-
-    void argsToCBuffer(ref Appender!(char[]) buf, Expression[] arguments, ref HdrGenState hgs)
-    {
-        if (arguments)
-            foreach (size_t i, Expression arg; arguments)
-                if (arg)
-                {	
-                    if (i) buf.put(',');
-                    expToCBuffer(buf, hgs, arg, PREC_assign);
-                }
-    }
-
-    bool isBool(bool result)
-    {
-        return false;
-    }
-
-	Identifier opId()
-	{
-		assert(false);
-	}
-
-	void rvalue()
-	{
+   {
+      int i;
+      Expression e;
    }
-    //DYNCAST dyncast() { return DYNCAST.DYNCAST_EXPRESSION; }	// kludge for template.isExpression()
 
-    void print()
-	{
-		assert(false);
-	}
-	
-    string toChars()
-	{
-		auto buf = appender!(char[])();
-		HdrGenState hgs;
-	
-		toCBuffer(buf, hgs);
-		return buf.data.idup;
-	}
-	
+   U u;
+   u.i = i;
+   return u.e;
+}
 
-    private void indent(int indent)
-    {
-        foreach (i; 0 .. indent)
+class Expression : Dobject
+{
+   Loc loc;			// file location
+   TOK op;		// handy to minimize use of dynamic_cast
+
+   Type type; // !=null means that semantic() has been run
+   int size;			// # of bytes in Expression so we can copy() it
+
+   this(Loc loc, TOK op, int size)
+   {
+      this.loc = loc;
+      //writef("Expression.Expression(op = %d %s) this = %p\n", op, to!(string)(op), this);
+      this.op = op;
+      this.size = size;
+   }
+
+   //bool equals(Dobject o) { assert (false,"zd cut"); }
+
+   /*********************************
+    * Does *not* do a deep copy.
+    OBVIATED by "this.dup", but I didn't test it
+    */
+   Expression copy()
+   {
+      return cloneThis(this);
+   }
+
+   Expression syntaxCopy()
+   {
+      //printf("Expression::syntaxCopy()\n");
+      //dump(0);
+      return copy();
+   }
+
+   /**************************************************
+    * Write expression out to buf, but wrap it
+    * in ( ) if its precedence is less than pr.
+    */
+
+   void expToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs, Expression e, PREC pr)
+   {
+      //if (precedence[e.op] == 0) e.dump(0);
+      if (precedence[e.op] < pr ||
+            /* Despite precedence, we don't allow a<b<c expressions.
+             * They must be parenthesized.
+             */
+            (pr == PREC_rel && precedence[e.op] == pr))
+      {
+         buf.put("(");
+         e.toCBuffer(buf, hgs);
+         buf.put(")");
+      }
+      else
+         e.toCBuffer(buf, hgs);
+   }
+
+   /**************************************************
+    * Write out argument list to buf.
+    */
+
+   void argsToCBuffer(ref Appender!(char[]) buf, Expression[] arguments, ref HdrGenState hgs)
+   {
+      if (arguments)
+         foreach (size_t i, Expression arg; arguments)
+            if (arg)
+            {	
+               if ( i > 0 ) buf.put(", ");
+               expToCBuffer(buf, hgs, arg, PREC_assign);
+            }
+   }
+
+   bool isBool(bool result)
+   {
+      return false;
+   }
+
+   Identifier opId()
+   {
+      assert(false);
+   }
+
+   void rvalue()
+   {
+   }
+   //DYNCAST dyncast() { return DYNCAST.DYNCAST_EXPRESSION; }	// kludge for template.isExpression()
+
+   void print()
+   {
+      assert(false);
+   }
+
+   string toChars()
+   {
+      auto buf = appender!(char[])();
+      HdrGenState hgs;
+
+      toCBuffer(buf, hgs);
+      return buf.data.idup;
+   }
+
+
+   version(none)
+   {
+      private void indent(int indent)
+      {
+         foreach (i; 0 .. indent)
             writef(" ");
-    }
+      }
+   }
 
-    private string type_print(Type type)
-    {
-        return type ? type.toChars() : "null";
-    }
+   private string type_print(Type type)
+   {
+      return type ? type.toChars() : "null";
+   }
 
-    void error(T...)(string format, T t)
-    {
-        .error(loc, format, t);
-    }
+   void error(T...)(string format, T t)
+   {
+      .error(loc, format, t);
+   }
 
-    void warning(T...)(string format, T t)
-    {
-        super.warning(loc, format, t);
-    }
+   void warning(T...)(string format, T t)
+   {
+      super.warning(loc, format, t);
+   }
 
-	int isConst() { assert(false); }
+   int isConst() { assert(false); }
 
-	real toImaginary() { assert(false); }
-	Identifier opId_r() { assert(false); }
+   real toImaginary() { assert(false); }
+   Identifier opId_r() { assert(false); }
 
-        ulong toInteger()
-        { assert (false);
-        }
-    int isBit()
-    {
-        assert (false);
-    }
+   ulong toInteger()
+   { assert (false);
+   }
+   int isBit()
+   {
+      assert (false);
+   }
 
-    static Expression combine(Expression e1, Expression e2)
-	{
-		if (e1)
-		{
-			if (e2)
-			{
-				e1 = new CommaExp(e1.loc, e1, e2);
-				e1.type = e2.type;
-			}
-		}
-		else
-		{
-			e1 = e2;
-		}
+   static Expression combine(Expression e1, Expression e2)
+   {
+      if (e1)
+      {
+         if (e2)
+         {
+            e1 = new CommaExp(e1.loc, e1, e2);
+            e1.type = e2.type;
+         }
+      }
+      else
+      {
+         e1 = e2;
+      }
 
-		return e1;
-	}
-    
-	static Expression[] arraySyntaxCopy(Expression[] exps)
-	{
-		Expression[] a = null;
+      return e1;
+   }
 
-		if (exps)
-		{
-			a.length = exps.length;
+   static Expression[] arraySyntaxCopy(Expression[] exps)
+   {
+      Expression[] a = null;
+
+      if (exps)
+      {
+         a.length = exps.length;
          foreach ( i, e; exps )
          {
             if (e) 
-                a[i] = e.syntaxCopy();
+               a[i] = e.syntaxCopy();
          }
-		}
-		return a;
-	}
-
-    void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put(Token.toChars(op));
-	}
-	
-    void toMangleBuffer(ref Appender!(char[]) buf)
-	{
-	}
-
-    Expression checkToBoolean()
-   {
-       assert(false); 
+      }
+      return a;
    }
-	/**************************************
-	 * Do an implicit cast.
-	 * Issue error if it can't be done.
-	 */
-    //Expression implicitCastTo(Scope sc, Type t) { assert (false,"zd cut"); }
-    
-	/****************************************
-	 * Resolve __LINE__ and __FILE__ to loc.
-	 */
-	Expression resolveLoc(Loc loc, Scope sc)
-	{
-	    return this;
-	}
 
+   void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put(Token.toChars(op));
+   }
+
+   void toMangleBuffer(ref Appender!(char[]) buf)
+   {
+   }
+
+   Expression checkToBoolean()
+   {
+      assert(false); 
+   }
+   /**************************************
+    * Do an implicit cast.
+    * Issue error if it can't be done.
+    */
+   //Expression implicitCastTo(Scope sc, Type t) { assert (false,"zd cut"); }
+
+   /****************************************
+    * Resolve __LINE__ and __FILE__ to loc.
+    */
+   Expression resolveLoc(Loc loc, Scope sc)
+   {
+      return this;
+   }
+
+   override Expression isExpression() { return this; }
 }
 
 class ArrayLiteralExp : Expression
 {
-	Expression[] elements;
+   Expression[] elements;
 
-	this(Loc loc, Expression[] elements)
-	{
-		super(loc, TOKarrayliteral, ArrayLiteralExp.sizeof);
-		this.elements = elements;
-	}
+   this(Loc loc, Expression[] elements)
+   {
+      super(loc, TOKarrayliteral, ArrayLiteralExp.sizeof);
+      this.elements = elements;
+   }
 
-	this(Loc loc, Expression e)
-	{
-		super(loc, TOKarrayliteral, ArrayLiteralExp.sizeof);
-		elements ~= e;
-	}
+   this(Loc loc, Expression e)
+   {
+      super(loc, TOKarrayliteral, ArrayLiteralExp.sizeof);
+      elements ~= e;
+   }
 
-	override Expression syntaxCopy()
-	{
-		return new ArrayLiteralExp(loc, arraySyntaxCopy(elements));
-	}
+   override Expression syntaxCopy()
+   {
+      return new ArrayLiteralExp(loc, arraySyntaxCopy(elements));
+   }
 
-	override bool isBool(bool result)
-	{
-		size_t dim = elements ? elements.length : 0;
-		return result ? (dim != 0) : (dim == 0);
-	}
+   override bool isBool(bool result)
+   {
+      size_t dim = elements ? elements.length : 0;
+      return result ? (dim != 0) : (dim == 0);
+   }
 
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put('[');
-		argsToCBuffer(buf, elements, hgs);
-		buf.put(']');
-	}
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("[");
+      argsToCBuffer(buf, elements, hgs);
+      buf.put("]");
+   }
 
-	override void toMangleBuffer(ref Appender!(char[]) buf)
-	{
-		size_t dim = elements ? elements.length : 0;
-		formattedWrite(buf,"A%s", dim);	///
-		for (size_t i = 0; i < dim; i++)
-		{	
-			auto e = elements[i];
-			e.toMangleBuffer(buf);
-		}
-	}
+   override void toMangleBuffer(ref Appender!(char[]) buf)
+   {
+      size_t dim = elements ? elements.length : 0;
+      formattedWrite(buf,"A%s", dim);	///
+      for (size_t i = 0; i < dim; i++)
+      {	
+         auto e = elements[i];
+         e.toMangleBuffer(buf);
+      }
+   }
 
 }
 
 class AssocArrayLiteralExp : Expression
 {
-	Expression[] keys;
-	Expression[] values;
+   Expression[] keys;
+   Expression[] values;
 
-	this(Loc loc, Expression[] keys, Expression[] values)
-	{
+   this(Loc loc, Expression[] keys, Expression[] values)
+   {
 
-		super(loc, TOKassocarrayliteral, this.sizeof);
-		assert(keys.length == values.length);
-		this.keys = keys;
-		this.values = values;	
-	}
+      super(loc, TOKassocarrayliteral, this.sizeof);
+      assert(keys.length == values.length);
+      this.keys = keys;
+      this.values = values;	
+   }
 
-	override Expression syntaxCopy()
-	{
-		return new AssocArrayLiteralExp(loc,
-				arraySyntaxCopy(keys), arraySyntaxCopy(values));
-	}
+   override Expression syntaxCopy()
+   {
+      return new AssocArrayLiteralExp(loc,
+            arraySyntaxCopy(keys), arraySyntaxCopy(values));
+   }
 
-	override bool isBool(bool result)
-	{
-		size_t dim = keys.length;
-		return result ? (dim != 0) : (dim == 0);
-	}
+   override bool isBool(bool result)
+   {
+      size_t dim = keys.length;
+      return result ? (dim != 0) : (dim == 0);
+   }
 
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put('[');
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put('[');
 		for (size_t i = 0; i < keys.length; i++)
 		{	auto key = keys[i];
 			auto value = values[i];
 
 			if (i)
-				buf.put(',');
+				buf.put(", ");
 			expToCBuffer(buf, hgs, key, PREC_assign);
-			buf.put(':');
+			buf.put(":");
 			expToCBuffer(buf, hgs, value, PREC_assign);
 		}
 		buf.put(']');
@@ -515,8 +473,6 @@ class FuncExp : Expression
 		return new FuncExp(loc, cast(FuncLiteralDeclaration)fd.syntaxCopy(null));
 	}
 
-	
-
 	override string toChars()
 	{
 		return fd.toChars();
@@ -603,7 +559,7 @@ class IntegerExp : Expression
 		this.value = value;
 	}
 
-	//override bool equals(Object o) { assert (false,"zd cut"); }
+	//override bool equals(Dobject o) { assert (false,"zd cut"); }
 
 	override string toChars()
 	{
@@ -684,8 +640,8 @@ class IntegerExp : Expression
 
 	override bool isBool(bool result)
 	{
-        int r = toInteger() != 0;
-        return cast(bool)(result ? r : !r);
+        bool r = toInteger() != 0;
+        return (result ? r : !r);
 	}
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
@@ -997,8 +953,6 @@ class NewExp : Expression
 			newtype.syntaxCopy(), arraySyntaxCopy(arguments));
 	}
 
-	
-
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
 		int i;
@@ -1083,7 +1037,7 @@ class RealExp : Expression
 		this.type = type;
 	}
 
-	//override bool equals(Object o) { assert (false,"zd cut"); }
+	//override bool equals(Dobject o) { assert (false,"zd cut"); }
 
 	override string toChars()
 	{
@@ -1176,8 +1130,6 @@ class StringExp : Expression
 		{
 			switch (c)
 			{
-            import std.ascii;
-            import std.format;
 				case '"':
 				case '\\':
 				if (!hgs.console)
@@ -1227,11 +1179,6 @@ class StructLiteralExp : Expression
 	{
 		return new StructLiteralExp(loc, sd, arraySyntaxCopy(elements));
 	}
-
-	/**************************************
-	 * Gets expression at offset of type.
-	 * Returns null if not found.
-	 */
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
@@ -1384,9 +1331,9 @@ class TraitsExp : Expression
 {
 	Identifier ident;
 
-	Object[] args;
+	Dobject[] args;
 
-	this(Loc loc, Identifier ident, Object[] args)
+	this(Loc loc, Identifier ident, Dobject[] args)
 	{
 		super(loc, TOKtraits, this.sizeof);
 		this.ident = ident;
@@ -1406,12 +1353,12 @@ class TraitsExp : Expression
 		{
 			for (int i = 0; i < args.length; i++)
 			{
-				buf.put(',');
-				Object oarg = args[i];
-				ObjectToCBuffer(buf, hgs, oarg);
+				buf.put(", ");
+				Dobject oarg = args[i];
+				DobjectToCBuffer(buf, hgs, oarg);
 			}
 		}
-		buf.put(')');
+		buf.put(")");
 	}
 }
 /****************************************
@@ -1466,12 +1413,12 @@ class TupleExp : Expression
 		return new TupleExp(loc, arraySyntaxCopy(exps));
 	}
 
-	//override bool equals(Object o) { assert (false,"zd cut"); }
+	//override bool equals(Dobject o) { assert (false,"zd cut"); }
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
 		buf.put("tuple(");
-		//TODO cancel argsToCBuffer(buf, exps, hgs);
+		   argsToCBuffer(buf, exps, hgs);
 		buf.put(')');
 	}
 }
@@ -1498,6 +1445,8 @@ class TypeExp : Expression
 
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
+   writeln("TypeExp.toCBuffer reached");
+      writeln("TypeExp.toCBuffer type = ",type);
 		type.toCBuffer(buf, null, hgs);
 	}
 
@@ -1505,9 +1454,9 @@ class TypeExp : Expression
 
 class TypeidExp : Expression
 {
-	Object obj;
+	Dobject obj;
 
-	this(Loc loc, Object o)
+	this(Loc loc, Dobject o)
 	{
 		super(loc, TOKtypeid, TypeidExp.sizeof);
 		this.obj = o;

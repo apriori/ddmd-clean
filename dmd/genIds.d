@@ -1,19 +1,20 @@
 import std.stdio;
 
-// This file generates dmd/Id.txt which is imported in dmd.Identifier
+// This file generates dmd/Id.txt which is imported in dmd.identifier
+// You need not run it unless you change one of the identifiers listed below
 
 void main()
 {
-   auto f = File("./dmd/Id.txt","w");
+   auto f = File("Id.txt","w");
    f.write( s );
 }
 
-/+ And the Identifier/name pairs: +/
+/+ the Identifier/name pairs: +/
 private enum string[2][] IDS = 
 [
     [ "IUnknown", null ],
     [ "Object_", "Object" ],
-    // caused a strange repeat declaration error...?
+    // module "object" is defined by default in any D program
     //  [ "object", null ], 
     [ "max", null ],
     [ "min", null ],

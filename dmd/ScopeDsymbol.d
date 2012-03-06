@@ -1,24 +1,20 @@
-module dmd.ScopeDsymbol;
+module dmd.scopeDsymbol;
 
-import dmd.Global;
-import dmd.BaseClass;
-import dmd.Dsymbol;
-import dmd.Declaration;
-import dmd.Expression;
-import dmd.Identifier;
-import dmd.FuncDeclaration;
+import dmd.global;
+import dmd.baseClass;
+import dmd.dsymbol;
+import dmd.declaration;
+import dmd.expression;
+import dmd.identifier;
+import dmd.funcDeclaration;
 import dmd.Scope;
-import dmd.Statement;
-import dmd.Token;
-import dmd.Type;
-import dmd.types.TypeClass;
-import dmd.TypeInfoDeclaration;
-import dmd.types.TypeStruct;
-import dmd.types.TypeTuple;
-import dmd.types.TypeEnum;
-import dmd.TemplateParameter;
-import dmd.VarDeclaration;
-import dmd.HdrGenState;
+import dmd.statement;
+import dmd.token;
+import dmd.type;
+import dmd.typeInfoDeclaration;
+import dmd.templateParameter;
+import dmd.varDeclaration;
+import dmd.hdrGenState;
 
 import std.stdio : writef;
 import std.array, std.format;
@@ -31,7 +27,7 @@ import std.array, std.format;
 
 enum OFFSET_RUNTIME = 0x76543210; // ???
 
-Tuple isTuple(Object o)
+Tuple isTuple(Dobject o)
 {
     //return dynamic_cast<Tuple *>(o);
     ///if (!o || o.dyncast() != DYNCAST_TUPLE)
@@ -54,13 +50,13 @@ TemplateTupleParameter isVariadic(TemplateParameter[] parameters)
 	return tp;
 }
 
-void ObjectToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs, Object oarg)
+void DobjectToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs, Dobject oarg)
 {
 	//printf("ObjectToCBuffer()\n");
-	Type t = isType(oarg);
-	Expression e = isExpression(oarg);
-	Dsymbol s = isDsymbol(oarg);
-	Tuple v = isTuple(oarg);
+	Type t = cast(Type)(oarg.isType() );
+	Expression e = cast(Expression)( oarg.isExpression() );
+	Dsymbol s = cast(Dsymbol)( oarg.isDsymbol() );
+	Tuple v = cast(Tuple)( oarg.isTuple() );
 	if (t)
 	{	
 		//printf("\tt: %s ty = %d\n", t.toChars(), t.ty);
@@ -75,13 +71,13 @@ void ObjectToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs, Object oarg
 	}
 	else if (v)
 	{
-		Object[] args = v.objects;
+		Dobject[] args = v.objects;
 		for (size_t i = 0; i < args.length; i++)
 		{
 			if (i)
 				buf.put(',');
-			Object o = args[i];
-			ObjectToCBuffer(buf, hgs, o);
+			Dobject o = args[i];
+			DobjectToCBuffer(buf, hgs, o);
 		}
 	}
 	else if (!oarg)
@@ -90,7 +86,7 @@ void ObjectToCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs, Object oarg
 	}
 	else
 	{
-		debug writef("bad Object = %p\n", oarg);
+		debug writef("bad Dobject = %p\n", oarg);
 		assert(0);
 	}
 }
@@ -134,19 +130,21 @@ class ScopeDsymbol : Dsymbol
     void addLocalClass(ClassDeclaration[] aclasses) { assert(false); }
     bool isBaseOf(ClassDeclaration cd, int* poffset) { assert(false); }
 
-
     string mangle()
     {
         assert (false);
     }
+    
     PROT prot()
     {
         assert (false);
     }
+    
     bool isDeprecated()		// is aggregate deprecated?
     {
         assert (false);
     }
+
     Type getType()
     {
         assert (false);
@@ -208,7 +206,6 @@ class ScopeDsymbol : Dsymbol
 	{
 		assert(false);
 	}
-
 
    // static Dsymbol getNth(Dsymbol[] members, size_t nth, size_t* pn = null) { assert(false); }
     override ScopeDsymbol isScopeDsymbol() { return this; }
@@ -344,7 +341,6 @@ class ArrayScopeSymbol : ScopeDsymbol
 		td = s;
 		this.sc = sc;
 	}
-	
 
     override ArrayScopeSymbol isArrayScopeSymbol() { return this; }
 }
@@ -360,8 +356,7 @@ class ClassDeclaration : AggregateDeclaration
     BaseClass[] baseclasses;		//  BaseClass's; first is super,
 					// rest are Interface's
 
-    int interfaces_dim;
-    BaseClass* interfaces;		// interfaces[interfaces_dim] for this class
+    BaseClass[] interfaces;		// interfaces[interfaces_dim] for this class
 					// (does not include baseClass)
 
     BaseClass[] vtblInterfaces;	// array of base interfaces that have
@@ -578,7 +573,7 @@ class ClassDeclaration : AggregateDeclaration
 	{
 		if (!isAnonymous())
 		{
-			formattedWrite(buf, "%s ", kind());
+			buf.put( kind() ~ " " );
 			buf.put(toChars());
 			if (baseclasses.length)
 				buf.put(" : ");
@@ -586,25 +581,27 @@ class ClassDeclaration : AggregateDeclaration
 		foreach (size_t i, BaseClass b; baseclasses)
 		{
 			if (i)
-				buf.put(',');
+				buf.put(", ");
 			//buf.put(b.base.ident.toChars());
 			b.type.toCBuffer(buf, null, hgs);
 		}
 		if (members)
 		{
-			buf.put('\n');
+			buf.put(hgs.nLIndent);
 			buf.put('{');
-			buf.put('\n');
+			buf.put(hgs.pushNewLine);
 			foreach (s; members)
 			{
-				buf.put("    ");
+				buf.put(hgs.indent);
 				s.toCBuffer(buf, hgs);
 			}
+         buf.put( hgs.popIndent );
 			buf.put("}");
+		   buf.put(hgs.nL);
 		}
 		else
-			buf.put(';');
-		buf.put('\n');
+			buf.put(";");
+		buf.put(hgs.nL); // space it out without spacing out!
 	}
 
 	/*********************************************
@@ -670,731 +667,724 @@ class ClassDeclaration : AggregateDeclaration
 class EnumDeclaration : ScopeDsymbol
 {
    /* enum ident : memtype { ... }
-     */
-    Type type;			// the TypeEnum
-    Type memtype;		// type of the members
-    
-    Expression maxval;
-    Expression minval;
-    Expression defaultval;	// default initializer
-	bool isdeprecated = false;
-	bool isdone = false;	// 0: not done
-							// 1: semantic() successfully completed
-    
-    this(Loc loc, Identifier id, Type memtype)
-	{
-		super(id);
-		this.loc = loc;
-		type = new TypeEnum(this);
-		this.memtype = memtype;
-	}
-	
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-	    Type t = null;
-	    if (memtype)
-		t = memtype.syntaxCopy();
+    */
+   Type type;			// the TypeEnum
+   Type memtype;		// type of the members
 
-	    EnumDeclaration ed;
-	    if (s)
-	    {	ed = cast(EnumDeclaration)s;
-		ed.memtype = t;
-	    }
-	    else
-		ed = new EnumDeclaration(loc, ident, t);
-	    ScopeDsymbol.syntaxCopy(ed);
-	    return ed;
-	}
-	
-	
-    override bool oneMember(Dsymbol ps)
-	{
-    		if (isAnonymous())
-			return Dsymbol.oneMembers(members, ps);
-	    	return Dsymbol.oneMember(ps);
-	}
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-	    buf.put("enum ");
-	    if (ident)
-	    {	buf.put(ident.toChars());
-		buf.put(' ');
-	    }
-	    if (memtype)
-	    {
-		buf.put(": ");
-		memtype.toCBuffer(buf, null, hgs);
-	    }
-	    if (!members)
-	    {
-		buf.put(';');
-		buf.put('\n');
-		return;
-	    }
-	    buf.put('\n');
-	    buf.put('{');
-	    buf.put('\n');
-	    foreach(Dsymbol s; members)
-	    {
-		EnumMember em = s.isEnumMember();
-		if (!em)
-		    continue;
-		//buf.put("    ");
-		em.toCBuffer(buf, hgs);
-		buf.put(',');
-		buf.put('\n');
-	    }
-	    buf.put('}');
-	    buf.put('\n');
-	}
-	
-    override Type getType()
-	{
-		return type;
-	}
-	
-    override string kind()
-	{
-		return "enum";
-	}
-	
-    override bool isDeprecated()			// is Dsymbol deprecated?
-	{
-		return isdeprecated;
-	}
+   Expression maxval;
+   Expression minval;
+   Expression defaultval;	// default initializer
+   bool isdeprecated = false;
+   bool isdone = false;	// 0: not done
+   // 1: semantic() successfully completed
 
-    override void emitComment(Scope sc)
-	{
-		assert(false);
-	}
+   this(Loc loc, Identifier id, Type memtype)
+   {
+      super(id);
+      this.loc = loc;
+      type = new TypeEnum(this);
+      this.memtype = memtype;
+   }
 
-	//override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      Type t = null;
+      if (memtype)
+         t = memtype.syntaxCopy();
 
-    override void toDocBuffer(ref Appender!(char[]) buf)
-	{
-		assert(false);
-	}
+      EnumDeclaration ed;
+      if (s)
+      {	ed = cast(EnumDeclaration)s;
+         ed.memtype = t;
+      }
+      else
+         ed = new EnumDeclaration(loc, ident, t);
+      ScopeDsymbol.syntaxCopy(ed);
+      return ed;
+   }
 
-    override EnumDeclaration isEnumDeclaration() { return this; }
 
-	
-    void toDebug()
-	{
-		assert(false);
-	}
-	
-    //Symbol* sinit;
+   override bool oneMember(Dsymbol ps)
+   {
+      if (isAnonymous())
+         return Dsymbol.oneMembers(members, ps);
+      return Dsymbol.oneMember(ps);
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put(hgs.indent);
+      buf.put("enum ");
+      if (ident)
+      {	buf.put(ident.toChars());
+         buf.put(' ');
+      }
+      if (memtype)
+      {
+         buf.put(": ");
+         memtype.toCBuffer(buf, null, hgs);
+      }
+      if (!members)
+      {
+         buf.put(';');
+         buf.put(hgs.nL);
+         return;
+      }
+      buf.put(hgs.nLIndent);
+      buf.put('{');
+      buf.put(hgs.pushNewLine);
+      foreach(Dsymbol s; members)
+      {
+         EnumMember em = s.isEnumMember();
+         if (!em)
+            continue;
+         buf.put(hgs.indent);
+         em.toCBuffer(buf, hgs);
+         buf.put(',');
+         buf.put(hgs.nL);
+      }
+      buf.put(hgs.popIndent);
+      buf.put('}');
+      buf.put(hgs.nL);
+      buf.put(hgs.nL);
+   }
+
+   override Type getType()
+   {
+      return type;
+   }
+
+   override string kind()
+   {
+      return "enum";
+   }
+
+   override bool isDeprecated()			// is Dsymbol deprecated?
+   {
+      return isdeprecated;
+   }
+
+   override void emitComment(Scope sc)
+   {
+      assert(false);
+   }
+
+   //override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
+
+   override void toDocBuffer(ref Appender!(char[]) buf)
+   {
+      assert(false);
+   }
+
+   override EnumDeclaration isEnumDeclaration() { return this; }
+
+
+   void toDebug()
+   {
+      assert(false);
+   }
+
+   //Symbol* sinit;
 
 }
 
 class InterfaceDeclaration : ClassDeclaration
 {
-    bool cpp;				// true if this is a C++ interface
+   bool cpp;				// true if this is a C++ interface
 
-    this(Loc loc, Identifier id, BaseClass[] baseclasses)
-	{
-		super(loc, id, baseclasses);
+   this(Loc loc, Identifier id, BaseClass[] baseclasses)
+   {
+      super(loc, id, baseclasses);
 
-		if (id is Id.IUnknown)	// IUnknown is the root of all COM interfaces
-		{
-			com = true;
-			cpp = true;		// IUnknown is also a C++ interface
-		}
-	}
+      if (id is Id.IUnknown)	// IUnknown is the root of all COM interfaces
+      {
+         com = true;
+         cpp = true;		// IUnknown is also a C++ interface
+      }
+   }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		InterfaceDeclaration id;
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      InterfaceDeclaration id;
 
-		if (s)
-			id = cast(InterfaceDeclaration)s;
-		else
-			id = new InterfaceDeclaration(loc, ident, null);
+      if (s)
+         id = cast(InterfaceDeclaration)s;
+      else
+         id = new InterfaceDeclaration(loc, ident, null);
 
-		ClassDeclaration.syntaxCopy(id);
-		return id;
-	}
+      ClassDeclaration.syntaxCopy(id);
+      return id;
+   }
 
-    override string kind()
-	{
-		assert(false);
-	}
+   override string kind()
+   {
+      return "interface";
+   }
 
-    override InterfaceDeclaration isInterfaceDeclaration() { return this; }
+   override InterfaceDeclaration isInterfaceDeclaration() { return this; }
 }
 
 class StructDeclaration : AggregateDeclaration
 {
-    bool zeroInit;		// true if initialize with 0 fill
+   bool zeroInit;		// true if initialize with 0 fill
 
-    int hasIdentityAssign;	// !=0 if has identity opAssign
-    FuncDeclaration cpctor;	// generated copy-constructor, if any
-    FuncDeclaration eq;	// bool opEquals(ref const T), if any
+   int hasIdentityAssign;	// !=0 if has identity opAssign
+   FuncDeclaration cpctor;	// generated copy-constructor, if any
+   FuncDeclaration eq;	// bool opEquals(ref const T), if any
 
-    FuncDeclaration[] postblits;	// Array of postblit functions
-    FuncDeclaration postblit;	// aggregate postblit
+   FuncDeclaration[] postblits;	// Array of postblit functions
+   FuncDeclaration postblit;	// aggregate postblit
 
-    this(Loc loc, Identifier id)
-	{
-		super(loc, id);
+   this(Loc loc, Identifier id)
+   {
+      super(loc, id);
 
-		// For forward references
-		type = new TypeStruct(this);
+      // For forward references
+      type = new TypeStruct(this);
 
-	}
+   }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		StructDeclaration sd;
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      StructDeclaration sd;
 
-		if (s)
-			sd = cast(StructDeclaration)s;
-		else
-			sd = new StructDeclaration(loc, ident);
-		ScopeDsymbol.syntaxCopy(sd);
-		return sd;
-	}
+      if (s)
+         sd = cast(StructDeclaration)s;
+      else
+         sd = new StructDeclaration(loc, ident);
+      ScopeDsymbol.syntaxCopy(sd);
+      return sd;
+   }
 
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-{
-    formattedWrite( buf, "%s ", kind());
-    if (!isAnonymous())
-        buf.put(toChars());
-    if (!members)
-    {
-        buf.put(';');
-        buf.put('\n');
-        return;
-    }
-    buf.put('\n');
-    buf.put('{');
-    buf.put('\n');
-    foreach (i; members)
-    {
-        buf.put("    ");
-        i.toCBuffer(buf, hgs);
-    }
-    buf.put('}');
-    buf.put('\n');
-}
-
-
-    override string mangle()
-	{
-		//printf("StructDeclaration.mangle() '%s'\n", toChars());
-		return Dsymbol.mangle();
-	}
-
-    override string kind()
-	{
-	   return "struct";
-	}
-
-    Expression cloneMembers()
-	{
-		assert(false);
-	}
-
-    override void toDocBuffer(ref Appender!(char[]) buf)
-	{
-		assert(false);
-	}
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put(hgs.indent);
+      buf.put(kind() ~ " ");
+      if (!isAnonymous())
+         buf.put(toChars());
+      if (!members)
+      {
+         buf.put(';');
+         buf.put(hgs.nL);
+         return;
+      }
+      buf.put(hgs.nLIndent);
+      buf.put('{');
+      buf.put(hgs.pushNewLine);
+      foreach (i; members)
+      {
+         i.toCBuffer(buf, hgs);
+      }
+      buf.put(hgs.popIndent);
+      buf.put('}');
+      buf.put(hgs.nL);
+      buf.put(hgs.nL);
+   }
 
 
+   override string mangle()
+   {
+      //printf("StructDeclaration.mangle() '%s'\n", toChars());
+      return Dsymbol.mangle();
+   }
 
+   override string kind()
+   {
+      return "struct";
+   }
 
+   Expression cloneMembers()
+   {
+      assert(false);
+   }
 
-    override StructDeclaration isStructDeclaration() { return this; }
+   override void toDocBuffer(ref Appender!(char[]) buf)
+   {
+      assert(false);
+   }
+
+   override StructDeclaration isStructDeclaration() { return this; }
 }
 
 class TemplateDeclaration : ScopeDsymbol
 {
-	TemplateParameter[] parameters;	// array of TemplateParameter's
+   TemplateParameter[] parameters;	// array of TemplateParameter's
 
-	TemplateParameter[] origParameters;	// originals for Ddoc
-	Expression constraint;
-	TemplateInstance[] instances;			// array of TemplateInstance's
+   TemplateParameter[] origParameters;	// originals for Ddoc
+   Expression constraint;
+   TemplateInstance[] instances;			// array of TemplateInstance's
 
-	TemplateDeclaration overnext;	// next overloaded TemplateDeclaration
-	TemplateDeclaration overroot;	// first in overnext list
+   TemplateDeclaration overnext;	// next overloaded TemplateDeclaration
+   TemplateDeclaration overroot;	// first in overnext list
 
-	int semanticRun;			// 1 semantic() run
+   int semanticRun;			// 1 semantic() run
 
-	Dsymbol onemember;		// if !=NULL then one member of this template
+   Dsymbol onemember;		// if !=NULL then one member of this template
 
-	int literal;		// this template declaration is a literal
+   int literal;		// this template declaration is a literal
 
-	this(Loc loc, Identifier id, TemplateParameter[] parameters, Expression constraint, Dsymbol[] decldefs)
-	{	
-		super(id);
-		
-	version (LOG) {
-		printf("TemplateDeclaration(this = %p, id = '%s')\n", this, id.toChars());
-	}
-	static if (false) {
-		if (parameters)
-			for (int i = 0; i < parameters.length; i++)
-			{   
-				TemplateParameter tp = cast(TemplateParameter)parameters.data[i];
-				//printf("\tparameter[%d] = %p\n", i, tp);
-				TemplateTypeParameter ttp = tp.isTemplateTypeParameter();
+   this(Loc loc, Identifier id, TemplateParameter[] parameters, Expression constraint, Dsymbol[] decldefs)
+   {	
+      super(id);
 
-				if (ttp)
-				{
-					printf("\tparameter[%d] = %s : %s\n", i, tp.ident.toChars(), ttp.specType ? ttp.specType.toChars() : "");
-				}
-			}
-	}
-		
-		this.loc = loc;
-		this.parameters = parameters;
-		this.origParameters = parameters;
-		this.constraint = constraint;
-		this.members = decldefs;
-		
-	}
+      version (LOG) {
+         printf("TemplateDeclaration(this = %p, id = '%s')\n", this, id.toChars());
+      }
+      static if (false) {
+         if (parameters)
+            for (int i = 0; i < parameters.length; i++)
+            {   
+               TemplateParameter tp = cast(TemplateParameter)parameters.data[i];
+               //printf("\tparameter[%d] = %p\n", i, tp);
+               TemplateTypeParameter ttp = tp.isTemplateTypeParameter();
 
-	override Dsymbol syntaxCopy(Dsymbol)
-	{
-		//printf("TemplateDeclaration.syntaxCopy()\n");
-		TemplateDeclaration td;
-		TemplateParameter[] p;
-		Dsymbol[] d;
+               if (ttp)
+               {
+                  printf("\tparameter[%d] = %s : %s\n", i, tp.ident.toChars(), ttp.specType ? ttp.specType.toChars() : "");
+               }
+            }
+      }
 
-		p = null;
-		if (parameters)
-		{
-			p.length = parameters.length;
-			for (int i = 0; i < p.length; i++)
-			{   
-				auto tp = parameters[i];
-				p[i] = tp.syntaxCopy();
-			}
-		}
-		
-		Expression e = null;
-		if (constraint)
-			e = constraint.syntaxCopy();
-		d = Dsymbol.arraySyntaxCopy(members);
-		td = new TemplateDeclaration(loc, ident, p, e, d);
-		return td;
-	}
+      this.loc = loc;
+      this.parameters = parameters;
+      this.origParameters = parameters;
+      this.constraint = constraint;
+      this.members = decldefs;
 
+   }
 
-	/**********************************
-	 * Overload existing TemplateDeclaration 'this' with the new one 's'.
-	 * Return !=0 if successful; i.e. no conflict.
-	 */
+   override Dsymbol syntaxCopy(Dsymbol)
+   {
+      //printf("TemplateDeclaration.syntaxCopy()\n");
+      TemplateDeclaration td;
+      TemplateParameter[] p;
+      Dsymbol[] d;
 
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put(kind());
-		buf.put(' ');
-		buf.put(ident.toChars());
-		buf.put('(');
-		foreach (size_t i, TemplateParameter tp; parameters)
-		{
-			if (hgs.ddoc)
-				tp = origParameters[i];
-			if (i)
-				buf.put(',');
-			tp.toCBuffer(buf, hgs);
-		}
-		buf.put(')');
+      p = null;
+      if (parameters)
+      {
+         p.length = parameters.length;
+         for (int i = 0; i < p.length; i++)
+         {   
+            auto tp = parameters[i];
+            p[i] = tp.syntaxCopy();
+         }
+      }
 
-		if (constraint)
-		{   buf.put(" if (");
-			constraint.toCBuffer(buf, hgs);
-			buf.put(')');
-		}
-
-		if (hgs.hdrgen)
-		{
-			hgs.tpltMember++;
-			buf.put('\n');
-			buf.put('{');
-			buf.put('\n');
-			foreach (Dsymbol s; members)
-				s.toCBuffer(buf, hgs);
-
-			buf.put('}');
-			buf.put('\n');
-			hgs.tpltMember--;
-		}
-	}
-
-	//override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
-
-	override string kind()
-	{
-		return (onemember && onemember.isAggregateDeclaration())
-			? onemember.kind()
-			: "template";
-	}
-
-	override string toChars()
-	{
-		auto buf = appender!(char[])();
-		HdrGenState hgs;
-
-		/// memset(&hgs, 0, hgs.sizeof);
-		buf.put(ident.toChars());
-		buf.put('(');
-		foreach (size_t i, TemplateParameter tp; parameters)
-		{
-			if (i)
-				buf.put(',');
-			tp.toCBuffer(buf, hgs);
-		}
-		buf.put(')');
-		if (constraint)
-		{
-			buf.put(" if (");
-			constraint.toCBuffer(buf, hgs);
-			buf.put(')');
-		}
-		return buf.data.idup;
-	}
-
-	override void emitComment(Scope sc)
-	{
-		assert(false);
-	}
-	
-//	void toDocBuffer(ref Appender!(char[]) *buf);
+      Expression e = null;
+      if (constraint)
+         e = constraint.syntaxCopy();
+      d = Dsymbol.arraySyntaxCopy(members);
+      td = new TemplateDeclaration(loc, ident, p, e, d);
+      return td;
+   }
 
 
-	/*************************************************
-	 * Match function arguments against a specific template function.
-	 * Input:
-	 *	loc		instantiation location
-	 *	targsi		Expression/Type initial list of template arguments
-	 *	ethis		'this' argument if !null
-	 *	fargs		arguments to function
-	 * Output:
-	 *	dedargs		Expression/Type deduced template arguments
-	 * Returns:
-	 *	match level
-	 */
-	
-	/*************************************************
-	 * Given function arguments, figure out which template function
-	 * to expand, and return that function.
-	 * If no match, give error message and return null.
-	 * Input:
-	 *	sc		instantiation scope
-	 *	loc		instantiation location
-	 *	targsi		initial list of template arguments
-	 *	ethis		if !null, the 'this' pointer argument
-	 *	fargs		arguments to function
-	 *	flags		1: do not issue error message on no match, just return null
-	 */
-	
-	/**************************************************
-	 * Declare template parameter tp with value o, and install it in the scope sc.
-	 */
-	
-	override TemplateDeclaration isTemplateDeclaration() { return this; }
+   /**********************************
+    * Overload existing TemplateDeclaration 'this' with the new one 's'.
+    * Return !=0 if successful; i.e. no conflict.
+    */
 
-	TemplateTupleParameter isVariadic()
-	{
-		return .isVariadic(parameters);
-	}
-	
-	/***********************************
-	 * We can overload templates.
-	 */
-	override bool isOverloadable()
-	{
-		return true;
-	}
-    
-    /****************************
-     * Declare all the function parameters as variables
-     * and add them to the scope
-     */
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put(kind());
+      buf.put(' ');
+      buf.put(ident.toChars());
+      buf.put('(');
+      foreach (size_t i, TemplateParameter tp; parameters)
+      {
+         if (hgs.ddoc)
+            tp = origParameters[i];
+         if (i)
+            buf.put(", ");
+         tp.toCBuffer(buf, hgs);
+      }
+      buf.put(')');
+
+      if (constraint)
+      {   buf.put(" if (");
+         constraint.toCBuffer(buf, hgs);
+         buf.put(')');
+      }
+
+      if (hgs.hdrgen)
+      {
+         hgs.tpltMember++;
+         buf.put(hgs.nLIndent);
+         buf.put('{');
+         hgs.pushIndent();
+         buf.put(hgs.nLIndent);
+         foreach (Dsymbol s; members)
+            s.toCBuffer(buf, hgs);
+
+         hgs.popIndent();
+         buf.put('}');
+         buf.put(hgs.nLIndent);
+         hgs.tpltMember--;
+      }
+   }
+
+   //override void toJsonBuffer(ref Appender!(char[]) buf) { assert(false,"zd cut"); }
+
+   override string kind()
+   {
+      return (onemember && onemember.isAggregateDeclaration())
+         ? onemember.kind()
+         : "template";
+   }
+
+   override string toChars()
+   {
+      auto buf = appender!(char[])();
+      HdrGenState hgs;
+
+      /// memset(&hgs, 0, hgs.sizeof);
+      buf.put(ident.toChars());
+      buf.put('(');
+      foreach (size_t i, TemplateParameter tp; parameters)
+      {
+         if (i)
+            buf.put(',');
+         tp.toCBuffer(buf, hgs);
+      }
+      buf.put(')');
+      if (constraint)
+      {
+         buf.put(" if (");
+         constraint.toCBuffer(buf, hgs);
+         buf.put(')');
+      }
+      return buf.data.idup;
+   }
+
+   override void emitComment(Scope sc)
+   {
+      assert(false);
+   }
+
+   //	void toDocBuffer(ref Appender!(char[]) *buf);
+
+
+   /*************************************************
+    * Match function arguments against a specific template function.
+    * Input:
+    *	loc		instantiation location
+    *	targsi		Expression/Type initial list of template arguments
+    *	ethis		'this' argument if !null
+    *	fargs		arguments to function
+    * Output:
+    *	dedargs		Expression/Type deduced template arguments
+    * Returns:
+    *	match level
+    */
+
+   /*************************************************
+    * Given function arguments, figure out which template function
+    * to expand, and return that function.
+    * If no match, give error message and return null.
+    * Input:
+    *	sc		instantiation scope
+    *	loc		instantiation location
+    *	targsi		initial list of template arguments
+    *	ethis		if !null, the 'this' pointer argument
+    *	fargs		arguments to function
+    *	flags		1: do not issue error message on no match, just return null
+    */
+
+   /**************************************************
+    * Declare template parameter tp with value o, and install it in the scope sc.
+    */
+
+   override TemplateDeclaration isTemplateDeclaration() { return this; }
+
+   TemplateTupleParameter isVariadic()
+   {
+      return .isVariadic(parameters);
+   }
+
+   /***********************************
+    * We can overload templates.
+    */
+   override bool isOverloadable()
+   {
+      return true;
+   }
+
+   /****************************
+    * Declare all the function parameters as variables
+    * and add them to the scope
+    */
 }
 
 class TemplateInstance : ScopeDsymbol
 {
-    /* Given:
-     *	foo!(args) =>
-     *	    name = foo
-     *	    tiargs = args
-     */
-    Identifier name;
-    //Identifier[] idents;
-    Object[] tiargs;		// Array of Types/Expression[] of template
-				// instance arguments [int*, char, 10*10]
+   /* Given:
+    *	foo!(args) =>
+    *	    name = foo
+    *	    tiargs = args
+    */
+   Identifier name;
+   //Identifier[] idents;
+   Dobject[] tiargs;		// Array of Types/Expression[] of template
+   // instance arguments [int*, char, 10*10]
 
-    Object[] tdtypes;		// Array of Types/Expression[] corresponding
-				// to TemplateDeclaration.parameters
-				// [int, char, 100]
+   Dobject[] tdtypes;		// Array of Types/Expression[] corresponding
+   // to TemplateDeclaration.parameters
+   // [int, char, 100]
 
-    TemplateDeclaration tempdecl;	// referenced by foo.bar.abc
-    TemplateInstance inst;		// refer to existing instance
-    TemplateInstance tinst;		// enclosing template instance
-    ScopeDsymbol argsym;		// argument symbol table
-    AliasDeclaration aliasdecl;	// !=null if instance is an alias for its
-					// sole member
-    WithScopeSymbol withsym;		// if a member of a with statement
-    int semanticRun;	// has semantic() been done?
-    int semantictiargsdone;	// has semanticTiargs() been done?
-    int nest;		// for recursion detection
-    int havetempdecl;	// 1 if used second constructor
-    Dsymbol isnested;	// if referencing local symbols, this is the context
-    int errors;		// 1 if compiled with errors
+   TemplateDeclaration tempdecl;	// referenced by foo.bar.abc
+   TemplateInstance inst;		// refer to existing instance
+   TemplateInstance tinst;		// enclosing template instance
+   ScopeDsymbol argsym;		// argument symbol table
+   AliasDeclaration aliasdecl;	// !=null if instance is an alias for its
+   // sole member
+   WithScopeSymbol withsym;		// if a member of a with statement
+   int semanticRun;	// has semantic() been done?
+   int semantictiargsdone;	// has semanticTiargs() been done?
+   int nest;		// for recursion detection
+   int havetempdecl;	// 1 if used second constructor
+   Dsymbol isnested;	// if referencing local symbols, this is the context
+   int errors;		// 1 if compiled with errors
 
-    this(Loc loc, Identifier ident)
-	{
-		super(null);
-		
-	version (LOG) {
-		printf("TemplateInstance(this = %p, ident = '%s')\n", this, ident ? ident.toChars() : "null");
-	}
-		this.loc = loc;
-		this.name = ident;
-	}
+   this(Loc loc, Identifier ident)
+   {
+      super(null);
 
-	/*****************
-	 * This constructor is only called when we figured out which function
-	 * template to instantiate.
-	 */
-    this(Loc loc, TemplateDeclaration td, Object[] tiargs)
-	{
-		super(null);
-		
-	version (LOG) {
-		printf("TemplateInstance(this = %p, tempdecl = '%s')\n", this, td.toChars());
-	}
-		this.loc = loc;
-		this.name = td.ident;
-		this.tiargs = tiargs;
-		this.tempdecl = td;
-		this.semantictiargsdone = 1;
-		this.havetempdecl = 1;
+      version (LOG) {
+         printf("TemplateInstance(this = %p, ident = '%s')\n", this, ident ? ident.toChars() : "null");
+      }
+      this.loc = loc;
+      this.name = ident;
+   }
 
-		assert(cast(size_t)cast(void*)tempdecl.scope_ > 0x10000);
-	}
+   /*****************
+    * This constructor is only called when we figured out which function
+    * template to instantiate.
+    */
+   this(Loc loc, TemplateDeclaration td, Dobject[] tiargs)
+   {
+      super(null);
 
-    static Object[] arraySyntaxCopy(Object[] objs)
-	{
-	    Object[] a = null;
-	    if (objs)
-	    {	
-		a.reserve(objs.length);
-		for (size_t i = 0; i < objs.length; i++)
-		{
-		    a[i] = objectSyntaxCopy(objs[i]);
-		}
-	    }
-	    return a;
-	}
+      version (LOG) {
+         printf("TemplateInstance(this = %p, tempdecl = '%s')\n", this, td.toChars());
+      }
+      this.loc = loc;
+      this.name = td.ident;
+      this.tiargs = tiargs;
+      this.tempdecl = td;
+      this.semantictiargsdone = 1;
+      this.havetempdecl = 1;
 
-    override Dsymbol syntaxCopy(Dsymbol s)
-	{
-	    TemplateInstance ti;
+      assert(cast(size_t)cast(void*)tempdecl.scope_ > 0x10000);
+   }
 
-	    if (s)
-		ti = cast(TemplateInstance)s;
-	    else
-		ti = new TemplateInstance(loc, name);
+   static Dobject[] arraySyntaxCopy(Dobject[] objs)
+   {
+      Dobject[] a = null;
+      if (objs)
+      {	
+         a.reserve(objs.length);
+         for (size_t i = 0; i < objs.length; i++)
+         {
+            a[i] = objectSyntaxCopy(objs[i]);
+         }
+      }
+      return a;
+   }
 
-	    ti.tiargs = arraySyntaxCopy(tiargs);
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      TemplateInstance ti;
 
-	    ScopeDsymbol.syntaxCopy(ti);
-	    return ti;
-	}
+      if (s)
+         ti = cast(TemplateInstance)s;
+      else
+         ti = new TemplateInstance(loc, name);
+
+      ti.tiargs = arraySyntaxCopy(tiargs);
+
+      ScopeDsymbol.syntaxCopy(ti);
+      return ti;
+   }
+
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      int i;
+
+      Identifier id = name;
+      buf.put(id.toChars());
+      buf.put("!(");
+      if (nest)
+         buf.put("...");
+      else
+      {
+         nest++;
+         Dobject[] args = tiargs;
+         for (i = 0; i < args.length; i++)
+         {
+            if (i)
+               buf.put(',');
+            Dobject oarg = args[i];
+            DobjectToCBuffer(buf, hgs, oarg);
+         }
+         nest--;
+      }
+      buf.put(')');
+   }
+
+
+   override string kind()
+   {
+      return "template instance";
+   }
 
 
 
+   override string toChars()
+   {
+      auto buf = appender!(char[])();
+      HdrGenState hgs;
 
+      toCBuffer(buf, hgs);
+      return buf.data.idup;
+   }
 
-	
-    override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		int i;
+   override TemplateInstance isTemplateInstance() { return this; }
 
-		Identifier id = name;
-		buf.put(id.toChars());
-		buf.put("!(");
-		if (nest)
-			buf.put("...");
-		else
-		{
-			nest++;
-			Object[] args = tiargs;
-			for (i = 0; i < args.length; i++)
-			{
-				if (i)
-					buf.put(',');
-				Object oarg = args[i];
-				ObjectToCBuffer(buf, hgs, oarg);
-			}
-			nest--;
-		}
-		buf.put(')');
-	}
-	
-	
-    override string kind()
-	{
-	    return "template instance";
-	}
-	
-    
-    
-    override string toChars()
-	{
-		auto buf = appender!(char[])();
-		HdrGenState hgs;
-
-		toCBuffer(buf, hgs);
-		return buf.data.idup;
-	}
-
-    override TemplateInstance isTemplateInstance() { return this; }
-
-    override AliasDeclaration isAliasDeclaration()
-	{
-		assert(false);
-	}
+   override AliasDeclaration isAliasDeclaration()
+   {
+      assert(false);
+   }
 }
 
 class TemplateMixin : TemplateInstance
 {
-	Identifier[] idents;
-	Type tqual;
+   Identifier[] idents;
+   Type tqual;
 
-	this(Loc loc, Identifier ident, Type tqual, Identifier[] idents, Object[] tiargs)
-	{
-		super( loc, idents[$] );
-		//printf("TemplateMixin(ident = '%s')\n", ident ? ident.toChars() : "");
-		this.ident = ident;
-		this.tqual = tqual;
-		this.idents = idents;
-		this.tiargs = tiargs;
-		//this.semantictiargsdone = 1;
-		//this.havetempdecl = 1;
-	}
+   this(Loc loc, Identifier ident, Type tqual, Identifier[] idents, Dobject[] tiargs)
+   {
+      super( loc, idents[$] );
+      //printf("TemplateMixin(ident = '%s')\n", ident ? ident.toChars() : "");
+      this.ident = ident;
+      this.tqual = tqual;
+      this.idents = idents;
+      this.tiargs = tiargs;
+      //this.semantictiargsdone = 1;
+      //this.havetempdecl = 1;
+   }
+   
+   override string kind()
+   {
+      return "mixin";
+   }
 
-
-
-
-
-
-	override string kind()
-	{
-		return "mixin";
-	}
-
-	override bool oneMember(Dsymbol* ps)
-	{
-		return Dsymbol.oneMember(ps);
-	}
+   override bool oneMember(Dsymbol* ps)
+   {
+      return Dsymbol.oneMember(ps);
+   }
 
 
-	override string toChars()
-	{
-		auto buf = appender!(char[])();
-		HdrGenState hgs;
+   override string toChars()
+   {
+      auto buf = appender!(char[])();
+      HdrGenState hgs;
 
-		TemplateInstance.toCBuffer(buf, hgs);
-		string s = buf.data.idup;
-		buf.clear();
-		return s;
-	}
+      TemplateInstance.toCBuffer(buf, hgs);
+      string s = buf.data.idup;
+      buf.clear();
+      return s;
+   }
 
-	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
-	{
-		buf.put("mixin ");
+   override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
+   {
+      buf.put("mixin ");
 
-		for (int i = 0; i < idents.length; i++)
-		{   Identifier id = idents[i];
+      for (int i = 0; i < idents.length; i++)
+      {   Identifier id = idents[i];
 
-			if (i)
-				buf.put('.');
-			buf.put(id.toChars());
-		}
-		buf.put("!(");
-		if (tiargs)
-		{
-			for (int i = 0; i < tiargs.length; i++)
-			{   if (i)
-				buf.put(',');
-				Object oarg = tiargs[i];
-				Type t = isType(oarg);
-				Expression e = isExpression(oarg);
-				Dsymbol s = isDsymbol(oarg);
-				if (t)
-					t.toCBuffer(buf, null, hgs);
-				else if (e)
-					e.toCBuffer(buf, hgs);
-				else if (s)
-				{
-					string p = s.ident ? s.ident.toChars() : s.toChars();
-					buf.put(p);
-				}
-				else if (!oarg)
-				{
-					buf.put("null");
-				}
-				else
-				{
-					assert(0);
-				}
-			}
-		}
-		buf.put(')');
-		if (ident)
-		{
-			buf.put(' ');
-			buf.put(ident.toChars());
-		}
-		buf.put(';');
-		buf.put('\n');
-	}
+         if (i)
+            buf.put('.');
+         buf.put(id.toChars());
+      }
+      buf.put("!(");
+      if (tiargs)
+      {
+         for (int i = 0; i < tiargs.length; i++)
+         {   if (i)
+            buf.put(',');
+            Dobject oarg = tiargs[i];
+            Type t = cast(Type)( oarg.isType() );
+            Expression e = cast(Expression)( oarg.isExpression() );
+            Dsymbol s = cast(Dsymbol)( oarg.isDsymbol() );
+            if (t)
+               t.toCBuffer(buf, null, hgs);
+            else if (e)
+               e.toCBuffer(buf, hgs);
+            else if (s)
+            {
+               string p = s.ident ? s.ident.toChars() : s.toChars();
+               buf.put(p);
+            }
+            else if (!oarg)
+            {
+               buf.put("null");
+            }
+            else
+            {
+               assert(0);
+            }
+         }
+      }
+      buf.put(')');
+      if (ident)
+      {
+         buf.put(' ');
+         buf.put(ident.toChars());
+      }
+      buf.put(';');
+      buf.put(hgs.nLIndent);
+   }
 
 
-	override TemplateMixin isTemplateMixin() { return this; }
+   override TemplateMixin isTemplateMixin() { return this; }
 }
 
 class UnionDeclaration : StructDeclaration
 {
-	this(Loc loc, Identifier id)
-	{
-		super(loc, id);
-	}
+   this(Loc loc, Identifier id)
+   {
+      super(loc, id);
+   }
 
-	override Dsymbol syntaxCopy(Dsymbol s)
-	{
-		UnionDeclaration ud;
+   override Dsymbol syntaxCopy(Dsymbol s)
+   {
+      UnionDeclaration ud;
 
-		if (s)
-			ud = cast(UnionDeclaration)s;
-		else
-			ud = new UnionDeclaration(loc, ident);
-		StructDeclaration.syntaxCopy(ud);
-		return ud;
-	}
+      if (s)
+         ud = cast(UnionDeclaration)s;
+      else
+         ud = new UnionDeclaration(loc, ident);
+      StructDeclaration.syntaxCopy(ud);
+      return ud;
+   }
 
-	override string kind()
-	{
-		return "union";
-	}
+   override string kind()
+   {
+      return "union";
+   }
 
-	override UnionDeclaration isUnionDeclaration() { return this; }
+   override UnionDeclaration isUnionDeclaration() { return this; }
 }
 
 class WithScopeSymbol : ScopeDsymbol
 {
-    WithStatement withstate;
+   WithStatement withstate;
 
-    this(WithStatement withstate)
-	{
-		this.withstate = withstate;
-	}
+   this(WithStatement withstate)
+   {
+      this.withstate = withstate;
+   }
 
-    override WithScopeSymbol isWithScopeSymbol() { return this; }
+   override WithScopeSymbol isWithScopeSymbol() { return this; }
 }
