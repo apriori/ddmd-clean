@@ -14,6 +14,8 @@ class Dobject
    Dobject isType() { return null; }
    Dobject isTemplateParameter() { return null; }
    Dobject isTuple() { return null; }
+   Dobject getChild( size_t rank, size_t index ) { return null; }
+   size_t rankLength( size_t rank ) { return 0; }
    
    string toChars()
    {

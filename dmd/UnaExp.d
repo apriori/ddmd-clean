@@ -6,8 +6,6 @@ import dmd.identifier;
 import dmd.funcDeclaration;
 import dmd.binExp;
 import dmd.unaExp;
-//import dmd.types.TypeClass;
-//import dmd.types.TypeStruct;
 import dmd.dsymbol;
 import dmd.scopeDsymbol;
 import dmd.type;

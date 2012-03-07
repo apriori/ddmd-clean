@@ -14,8 +14,7 @@ args
 
          void next(string s){ write("press Enter..."); stdin.readln(); write(s); }
       auto str1 = "syntactically Wrong{ int Code Buffer; }";   
-   auto str2 = "struct Much{ int better; string now; char[] here; } "
-               "int feathers = 3; ";
+   auto str2 = "struct Much{ int better; string now; char[] here; } ";
    
       // By the way, comments aren't implemented yet!
          auto m = new Module("test", new Identifier("Testy",TOKidentifier),false,false);

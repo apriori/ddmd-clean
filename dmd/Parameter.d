@@ -178,11 +178,6 @@ class Parameter
       buf.put(')');
    }
 
-   static int isTPL(Parameter[] arguments)
-   {
-      assert(false);
-   }
-
    static void argsToDecoBuffer(ref Appender!(char[]) buf, Parameter[] arguments)
    {
       assert(false);
