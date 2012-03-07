@@ -216,7 +216,7 @@ class CmpExp : BinExp
 		super(loc, op, CmpExp.sizeof, e1, e2);
 	}
 
-	int isBit()
+	bool isBit()
 	{
 		assert(false);
 	}
@@ -339,7 +339,7 @@ class IdentityExp : BinExp
 		super(loc, op, IdentityExp.sizeof, e1, e2);
 	}
 
-	override int isBit()
+	override bool isBit()
 	{
 		assert(false);
 	}
@@ -352,7 +352,7 @@ class InExp : BinExp
 		super(loc, TOKin, InExp.sizeof, e1, e2);
 	}
 
-	override int isBit()
+	override bool isBit()
 	{
 		return 0;
 	}
@@ -525,7 +525,7 @@ class OrOrExp : BinExp
 		return this;
 	}
 	
-    override int isBit()
+    override bool isBit()
 	{
 		assert(false);
 	}
