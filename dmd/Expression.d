@@ -197,7 +197,8 @@ class Expression : Dobject
    ulong toInteger()
    { assert (false);
    }
-   int isBit()
+
+   bool isBit()
    {
       assert (false);
    }
