@@ -1,14 +1,14 @@
 
 ddmd-clean README, by Zach the Mystic a.k.a. Zach Tollen
 
-see NOTES for updates and for some notes as to how ddmd has been changed
+see NOTES for updates, etc.
 
 Hi, thanks for reading me.
 
 ddmd-clean is Digital Mars D ported to the D Programming Language. Instead of
-porting everything, which wouuld be overwhelming, ddmd-clean has only ported
-dmd's Lexer, Parser, and Code Generation capabilities. I started with ddmd (
-http://www.dsource.org/projects/ddmd ), and then cut out all the semantic and
+porting everything, which would be overwhelming, ddmd-clean has only ported
+dmd's Lexer, Parser, and Code Generation capabilities. I started with ddmd
+(http://www.dsource.org/projects/ddmd), and then cut out all the semantic and
 backend. But the real work was in converting all the weird C++ style code to
 much awesomer D equivalents.
 
