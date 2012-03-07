@@ -655,13 +655,13 @@ Ldeclaration:
             continue;
 
             default:
-            error("Declaration expected, not '%s'",token.toChars());
-        Lerror:
-            while (token.value != TOKsemicolon && token.value != TOKeof)
-                nextToken();
-            nextToken();
-            s = null;
-            continue;
+               error("Declaration expected, not '%s'",token.toChars());
+         Lerror:
+               while (token.value != TOKsemicolon && token.value != TOKeof)
+               nextToken();
+               nextToken();
+               s = null;
+               continue;
          }
 
          if (s)
@@ -672,6 +672,7 @@ Ldeclaration:
 
          // end of main loop
       } while (!once);
+
       return decldefs;
    }
 
@@ -2050,7 +2051,7 @@ static if (false) {
 
       case TOKstruct:
       if (id)
-      a = new StructDeclaration(loc, id);
+         a = new StructDeclaration(loc, id);
       else
           anon = 1;
       break;
@@ -2070,32 +2071,33 @@ static if (false) {
 		{ 	nextToken();
 		}
 		else if (token.value == TOKlcurly)
-		{
-		//printf("aggregate definition\n");
-		nextToken();
-		auto decl = parseDeclDefs(0);
-		if (token.value != TOKrcurly)
-			error("} expected following member declarations in aggregate");
-		nextToken();
-		if (anon)
-		{
-			/* Anonymous structs/unions are more like attributes.
-			 */
-			return new AnonDeclaration(loc, anon - 1, decl);
-		}
-		else
-			a.members = decl;
-		}
-		else
-		{
-		error("{ } expected following aggregate declaration");
-		a = new StructDeclaration(loc, null);
-		}
+      {
+         //printf("aggregate definition\n");
+         nextToken();
+         auto decl = parseDeclDefs(0);
+         if (token.value != TOKrcurly)
+            error("} expected following member declarations in aggregate");
+         nextToken();
+         if (anon)
+         {
+            /* Anonymous structs/unions are more like attributes.
+             */
+            return new AnonDeclaration(loc, anon - 1, decl);
+         }
+         else
+            a.members = decl;
+      }
+      else
+      {
+         error("{ } expected following aggregate declaration");
+         a = new StructDeclaration(loc, null);
+      }
 
-		if (tpl)
+      if (tpl)
 		{	// Wrap a template around the aggregate declaration
 
 		Dsymbol[] decldefs;
+
 		decldefs ~= (a);
 		auto tempdecl =	new TemplateDeclaration(loc, id, tpl, constraint, decldefs);
 		return tempdecl;

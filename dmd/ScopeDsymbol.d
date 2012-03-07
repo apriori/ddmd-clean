@@ -135,6 +135,16 @@ class ScopeDsymbol : Dsymbol
         assert (false);
     }
     
+    override string toChars()
+    {
+       auto buf = appender!(char[])();
+       HdrGenState hgs;
+       toCBuffer( buf, hgs );
+       char[] sbuf = buf.data;
+       import std.exception;
+       return assumeUnique( sbuf );
+    }
+
     PROT prot()
     {
         assert (false);
@@ -861,7 +871,10 @@ class StructDeclaration : AggregateDeclaration
       buf.put(hgs.indent);
       buf.put(kind() ~ " ");
       if (!isAnonymous())
-         buf.put(toChars());
+      {
+         assert( ident );
+         buf.put( ident.toChars() );
+      }
       if (!members)
       {
          buf.put(';');

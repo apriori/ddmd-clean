@@ -4,8 +4,6 @@
      All Expressions, Statements, and Dsymbols now inheret from class Dobject.
    This will allow nicer IDE capabilities I believe.
    All the Dobjects are separate from the parser and lexer.
-   build.sh builds those objects.
-   buildParser.sh builds the parser and lexer as a separate file
 
      I did some work on the code generating functions such that they will
    actually print decent looking code. I'm designing a code generation
@@ -26,6 +24,40 @@ Next commit: 2.16.2012  :: Getting the parser to run now
     I restructured almost the whole thing. The compile times are WAY down!
 
 First upload: 2.2.2012
+ddmd-clean README, by Zach the Mystic
+(original notice, a few details follow)
+
+Hi, thanks for reading me.
+
+  The main problem with the ddmd project ( http://www.dsource.org/projects/ddmd )
+is that Digital Mars D (dmd), written in C++, is just chock-full of code which
+you simply wouldn't write if you were programming it in D.  Therefore you
+have things like "alias Vector!Dsymbol Dsymbols;" followed later by "Dsymbols
+members;", followed by "members = new Dsymbols;", when in D you would just write
+"Dsymbol[] members;" and be on your way.
+
+  ddmd-clean is the seed of a true D language port of the dmd compiler. The
+whole class heirarchy is maintained and all the crappy C++ weirdness is gone.
+Unfortunately, in order to make it clean, certain "conveniences" had to be
+sacrificed. Ummm... I entirely erased all of the semantic analysis and the
+backend. Also, even the Lexer and Parser, as they stand, are not written using
+cutting edge D/phobos techonology. The Lexer still uses good old-fashioned
+C-style pointers, when I'm sure it could be made more elegant and robust (though
+probably not any faster!) using phobos Ranges. And the main.d program, a.k.a.
+mars.c, has been utterly destroyed by my youth and inexperience! Nonetheless it
+seemed like it would have been better had it been written in D/phobos anyway.
+Since all I needed were the Lexer and Parser I wasn't too worried about what I
+might do to main.d.
+
+  Anyway, I chose to put this stripped-down version of the ddmd lexer and parser
+on github now since I had lofty ideas about my own program which would require my
+changing the basic structure of the Lexer and Parser themselves. (Feb. 2, 2012).
+I hope there's something here that you can use.
+
+  Peace,
+  Zach
+
+(details)
 These are the changes I've made so far. (2.2.2012)
 
 Step 1. Remove "import dmd.TObject;" and "class XXXX [: TObject]" and "register();"

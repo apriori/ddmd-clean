@@ -1,34 +1,25 @@
-ddmd-clean README, by Zach the Mystic
+
+ddmd-clean README, by Zach the Mystic a.k.a. Zach Tollen
 
 see NOTES for updates and for some notes as to how ddmd has been changed
 
 Hi, thanks for reading me.
 
-  The main problem with the ddmd project ( http://www.dsource.org/projects/ddmd )
-is that Digital Mars D (dmd), written in C++, is just chock-full of code which
-you simply wouldn't write if you were programming it in D.  Therefore you
-have things like "alias Vector!Dsymbol Dsymbols;" followed later by "Dsymbols
-members;", followed by "members = new Dsymbols;", when in D you would just write
-"Dsymbol[] members;" and be on your way.
+ddmd-clean is Digital Mars D ported to the D Programming Language. Instead of
+porting everything, which wouuld be overwhelming, ddmd-clean has only ported
+dmd's Lexer, Parser, and Code Generation capabilities. I started with ddmd (
+http://www.dsource.org/projects/ddmd ), and then cut out all the semantic and
+backend. But the real work was in converting all the weird C++ style code to
+much awesomer D equivalents.
 
-  ddmd-clean is the seed of a true D language port of the dmd compiler. The
-whole class heirarchy is maintained and all the crappy C++ weirdness is gone.
-Unfortunately, in order to make it clean, certain "conveniences" had to be
-sacrificed. Ummm... I entirely erased all of the semantic analysis and the
-backend. Also, even the Lexer and Parser, as they stand, are not written using
-cutting edge D/phobos techonology. The Lexer still uses good old-fashioned
-C-style pointers, when I'm sure it could be made more elegant and robust (though
-probably not any faster!) using phobos Ranges. And the main.d program, a.k.a.
-mars.c, has been utterly destroyed by my youth and inexperience! Nonetheless it
-seemed like it would have been better had it been written in D/phobos anyway.
-Since all I needed were the Lexer and Parser I wasn't too worried about what I
-might do to main.d.
+To witness the power of what's already here, first take a look at main.d. Then,
+simply type:
 
-  Anyway, I chose to put this stripped-down version of the ddmd lexer and parser
-on github now since I had lofty ideas about my own program which would require my
-changing the basic structure of the Lexer and Parser themselves. (Feb. 2, 2012).
-I hope there's something here that you can use.
+ddmd-clean$ ./build.sh
 
-  Peace,
-  Zach
+or its equivalent:
+
+ddmd-clean$ rdmd -J./dmd main
+
+Zach
  
