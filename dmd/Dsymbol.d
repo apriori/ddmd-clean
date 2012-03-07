@@ -128,16 +128,6 @@ class Dsymbol : Dobject
       assert (false,"No toCBuffer() for class Dsymbol" );
    }
 
-   Dobject nextSibling() { return null; }
-   Dobject previousSibling() { return null; }
-
-   Dobject descend( int rank )
-   {
-      // No descent possible for this particular Dsymbol
-      writeln("Dsymbol.descend: descent failed, returning null");
-      return null;
-   }
-   
    override Dsymbol isDsymbol() { return this; }
 	
    string kind()

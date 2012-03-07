@@ -122,28 +122,6 @@ class FuncDeclaration : Declaration
 		return f;
 	}
 
-   override Dobject descend( int rank )
-   {
-      switch (rank)
-      {
-         case 1:
-            return type;
-            break;
-         case 2:
-            return ident;
-            break;
-         case 3:
-            return parameters[0];
-            break;
-         case 4:
-            return fbody;
-            break;
-         default:
-            return fbody;
-      }
-      return null;
-   }
-
 	override void toCBuffer(ref Appender!(char[]) buf, ref HdrGenState hgs)
 	{
 		StorageClassDeclaration.stcToCBuffer(buf, storage_class);

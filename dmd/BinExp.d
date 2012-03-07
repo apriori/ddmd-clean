@@ -112,7 +112,7 @@ class AndAndExp : BinExp
 		return this;
 	}
 
-	override int isBit()
+	override bool isBit()
 	{
 		assert(false);
 	}
