@@ -141,7 +141,7 @@ class BoolExp : UnaExp
 		//type = t;
 	}
 
-	override int isBit()
+	override bool isBit()
 	{
 		return true;
 	}
@@ -465,7 +465,7 @@ class NotExp : UnaExp
 		super(loc, TOKnot, NotExp.sizeof, e);
 	}
 
-	override int isBit()
+	override bool isBit()
 	{
 		assert(false);
 	}
