@@ -22,4 +22,19 @@ or its equivalent:
 ddmd-clean$ rdmd -J./dmd main
 
 Zach
- 
+
+p.s. Note about the GPL license: I would much rather this be Boost or some
+other license, but unless I get explicit permission, it must remain GPL only.
+Indeed, reading the GPL sends an Orwellian shiver down my spine with the misuse
+of the word "free" (a clearer and more precise legal term would be
+"anti-proprietary", no?) to describe their software. I'm not sure exactly why
+anyone would chose this license for their computer programs. Even assuming sound
+reasons for including similarly anti-proprietary terms in a  license, the
+tone of the GPL is so juvenile as to preclude it in my mind from being taken
+seriously. I'm sure there are good reasons and bad reasons for wanting to make
+your software un-privatizable, but the only good reason to choose the GPL is if
+you simply can't find a license which offers the same terms without the
+same juvenile leftist nonsense, and you don't have time to write one yourself,
+which I assume must be the case with dmd's otherwise decent and reasonable
+copyright holders. Anyway, I hope you like ddmd-clean.
+
