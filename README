@@ -36,5 +36,29 @@ your software un-privatizable, but the only good reason to choose the GPL is if
 you simply can't find a license which offers the same terms without the
 same juvenile leftist nonsense, and you don't have time to write one yourself,
 which I assume must be the case with dmd's otherwise decent and reasonable
-copyright holders. Anyway, I hope you like ddmd-clean.
+copyright holders. 
+
+To make my point clearer, I have rewritten the program's license as I would LIKE
+to see it:
+
+               NOTE: NOT THIS PROGRAM'S CURRENT LICENSE!!
+
+/*
+ *  Copyright (c) 1999-2008 by Digital Mars
+ *  The original author(s) of this software have placed significant 
+ *  restrictions on how it may be used. While this happens to be
+ *  "free software" according to the definition used by the Free Software
+ *  Foundation, it is not really free. Any redistribution in any form of
+ *  this software must adhere to the following restrictions:
+ *
+ *  o  Any distribution of any program which includes any part of this 
+ *     software either in source or in binary form MUST be accompanied
+ *     by said program's own complete source code.
+ *  o  Any distribution of any program which includes any part of this 
+ *     software must display this license and be made available under the
+ *     terms of this license.
+ *  o  This license may not be removed or altered from any distribution of
+ *     this software.
+ *
+ */
 
